@@ -1,0 +1,1200 @@
+/* 頭前國中 115學年度校慶運動大會 專屬樣式表 (明亮清爽活力風格) */
+:root {
+  --primary: #0284c7;       /* 活力蔚藍 (Vibrant Sky Blue) */
+  --primary-light: #38bdf8; /* 清爽青空藍 (Fresh Cyan Sky) */
+  --primary-dark: #0369a1;  /* 湛藍 (Deep Blue) */
+  --primary-subtle: #e0f2fe;/* 極淺天藍 (Subtle Blue) */
+  --accent: #f59e0b;        /* 競賽暖金 (Athletic Gold) */
+  --accent-gold: #eab308;   /* 金牌 (Gold) */
+  --accent-silver: #94a3b8; /* 銀牌 (Silver) */
+  --accent-bronze: #ea580c; /* 銅牌 (Bronze) */
+  --success: #10b981;       /* 晉級清新翡翠綠 (Fresh Emerald) */
+  --success-subtle: #dcfce7;/* 翡翠綠淡底 */
+  --warning: #f97316;       /* 候補亮橙 (Amber) */
+  --danger: #ef4444;        /* 犯規紅 (Red) */
+  --bg: #f0f7ff;            /* 明亮清爽晨曦微藍底色 (Fresh Bright Background) */
+  --card-bg: #ffffff;       /* 純淨白卡片 */
+  --text-main: #0f172a;     /* 深色字體，高清晰對比 */
+  --text-muted: #64748b;    /* 輔助灰字 */
+  --border: #e2e8f0;        /* 輕柔邊框 */
+  --border-light: #f1f5f9;  /* 淡邊框 */
+  --shadow-sm: 0 1px 3px rgba(14, 165, 233, 0.06);
+  --shadow: 0 4px 14px rgba(14, 165, 233, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 25px -3px rgba(14, 165, 233, 0.12), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+  --radius: 14px;
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--bg);
+  color: var(--text-main);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* 頂部彩虹裝飾線條 */
+body::before {
+  content: "";
+  display: block;
+  height: 5px;
+  background: linear-gradient(90deg, #0284c7 0%, #06b6d4 35%, #10b981 70%, #f59e0b 100%);
+  width: 100%;
+}
+
+/* 頂端標題區 (明亮清爽漸層) */
+header.app-header {
+  background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 50%, #38bdf8 100%);
+  color: #ffffff;
+  padding: 1.1rem 1.75rem;
+  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.18);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.brand-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-title h1 {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  flex-wrap: wrap;
+}
+
+/* 學年度動態切換下拉選單 (支援舊年度封存與快速切換) */
+.header-year-selector-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 9999px;
+  padding: 0.2rem 0.65rem;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.header-year-selector-wrap:hover {
+  background: rgba(255, 255, 255, 0.32);
+  border-color: rgba(255, 255, 255, 0.7);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+}
+
+.header-year-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 800;
+  cursor: pointer;
+  padding-right: 1.25rem;
+  padding-left: 0.2rem;
+  outline: none;
+  font-family: inherit;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.header-year-select option {
+  color: #0f172a;
+  background: #ffffff;
+  font-weight: 700;
+  padding: 0.5rem;
+}
+
+.header-year-arrow {
+  position: absolute;
+  right: 0.55rem;
+  pointer-events: none;
+  font-size: 0.72rem;
+  color: #ffffff;
+  transition: transform 0.2s;
+}
+
+.header-year-selector-wrap:hover .header-year-arrow {
+  transform: translateY(1px);
+}
+
+.brand-title .sub-title {
+  font-size: 0.88rem;
+  color: #e0f2fe;
+  font-weight: 500;
+  margin-top: 0.15rem;
+}
+
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.status-pill {
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+  padding: 0.4rem 0.9rem;
+  border-radius: 9999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #34d399;
+  box-shadow: 0 0 8px #34d399;
+}
+
+.status-dot.syncing {
+  background-color: #fde047;
+  box-shadow: 0 0 8px #fde047;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.btn-header {
+  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  color: #0369a1;
+  padding: 0.45rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.btn-header:hover {
+  background: #f0f9ff;
+  color: #0284c7;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.btn-header.active {
+  background: #fef08a;
+  border-color: #eab308;
+  color: #854d0e;
+}
+
+.btn-header.logged-in {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.btn-header.logged-in:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+/* 導覽列 (純淨白 + 天藍亮底) */
+nav.app-nav {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 2px 6px rgba(14, 165, 233, 0.05);
+  position: sticky;
+  top: 76px;
+  z-index: 90;
+}
+
+.nav-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav-container::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-item {
+  padding: 1rem 1.35rem;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #64748b;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.nav-item.admin-nav-hidden,
+#nav-teacher-tab.admin-nav-hidden {
+  display: none !important;
+}
+
+.nav-item:hover {
+  color: var(--primary);
+  background: #f0f9ff;
+}
+
+.nav-item.active {
+  color: #0284c7;
+  border-bottom-color: #0284c7;
+  background: #e0f2fe;
+}
+
+/* 主內容區 */
+main.app-main {
+  max-width: 1400px;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 卡片與容器 (清爽純白 + 柔和天藍微光) */
+.card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  border: 1px solid #e0f2fe;
+  box-shadow: var(--shadow);
+  padding: 1.4rem;
+  margin-bottom: 1.5rem;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.85rem;
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0369a1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* 篩選按鈕列 */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.filter-group-label {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #475569;
+  margin-right: 0.25rem;
+}
+
+.filter-pill {
+  padding: 0.42rem 0.95rem;
+  border-radius: 9999px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-pill:hover {
+  background: #e0f2fe;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+.filter-pill.active {
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  border-color: #0284c7;
+  color: #ffffff;
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.28);
+}
+
+/* 頒獎看板 (Podium) */
+.podium-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+  gap: 1.1rem;
+  margin-bottom: 1.5rem;
+}
+
+.podium-card {
+  border-radius: var(--radius);
+  padding: 1.35rem 1.25rem;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.podium-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+.podium-gold {
+  background: linear-gradient(145deg, #fffbeb 0%, #fef3c7 100%);
+  border: 2px solid #facc15;
+}
+
+.podium-silver {
+  background: linear-gradient(145deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 2px solid #cbd5e1;
+}
+
+.podium-bronze {
+  background: linear-gradient(145deg, #fff7ed 0%, #ffedd5 100%);
+  border: 2px solid #fdba74;
+}
+
+.podium-medal {
+  font-size: 2.4rem;
+  margin-bottom: 0.25rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.podium-rank-text {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-bottom: 0.4rem;
+}
+
+.podium-gold .podium-rank-text { color: #854d0e; }
+.podium-silver .podium-rank-text { color: #334155; }
+.podium-bronze .podium-rank-text { color: #9a3412; }
+
+.podium-team {
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.podium-athlete {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #334155;
+  margin-top: 0.25rem;
+}
+
+.podium-score {
+  font-size: 1.55rem;
+  font-weight: 900;
+  font-family: monospace;
+  margin-top: 0.6rem;
+  color: #0369a1;
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.3rem 0.6rem;
+  border-radius: 8px;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* 警示與醒目橫幅 (明亮清爽風格) */
+.alert-banner {
+  background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%);
+  border-left: 5px solid #06b6d4;
+  padding: 1.1rem 1.35rem;
+  border-radius: 10px;
+  margin-bottom: 1.35rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  box-shadow: 0 2px 6px rgba(6, 182, 212, 0.08);
+}
+
+.alert-banner.alert-info {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-left-color: #10b981;
+}
+
+.alert-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.alert-content h4 {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0e7490;
+  margin-bottom: 0.25rem;
+}
+
+.alert-info .alert-content h4 {
+  color: #065f46;
+}
+
+.alert-content p {
+  font-size: 0.92rem;
+  color: #155e75;
+  line-height: 1.5;
+}
+
+.alert-info .alert-content p {
+  color: #166534;
+}
+
+/* 資料表格 (清爽白藍交織) */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid #e0f2fe;
+  background: #ffffff;
+}
+
+table.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.93rem;
+  background: #fff;
+}
+
+table.data-table th {
+  background: #f0f7ff;
+  color: #0369a1;
+  font-weight: 800;
+  padding: 0.85rem 1.1rem;
+  border-bottom: 2px solid #bae6fd;
+  white-space: nowrap;
+}
+
+table.data-table td {
+  padding: 0.85rem 1.1rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+table.data-table tr:nth-child(even) {
+  background: #fbfdff;
+}
+
+table.data-table tr:hover {
+  background: #e0f2fe;
+}
+
+/* 徽章 (Badges) */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.badge-qualified {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #86efac;
+}
+
+.badge-reserve {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-sports {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #c4b5fd;
+}
+
+.badge-tied {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+}
+
+.badge-gold {
+  background: #fef08a;
+  color: #854d0e;
+  border: 1px solid #facc15;
+}
+
+.badge-silver {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.badge-bronze {
+  background: #fed7aa;
+  color: #9a3412;
+  border: 1px solid #fdba74;
+}
+
+/* 表單與控制項 */
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.1rem;
+  margin-bottom: 1.25rem;
+  align-items: center;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 190px;
+}
+
+.form-label {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #334155;
+}
+
+.form-control {
+  padding: 0.55rem 0.95rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  color: var(--text-main);
+  background: #fff;
+  transition: all 0.2s;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+.btn {
+  padding: 0.55rem 1.15rem;
+  border-radius: 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  transition: all 0.2s;
+  border: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, #0369a1, #0284c7);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.35);
+}
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-secondary:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.btn-success {
+  background: #10b981;
+  color: #fff;
+}
+
+.btn-success:hover {
+  background: #059669;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: #fff;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.84rem;
+}
+
+/* 專屬：分與秒時間輸入群組 (如：4分15秒34) */
+.time-input-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #f8fafc;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+.time-input-min {
+  width: 50px;
+  text-align: center;
+  font-weight: 800;
+  font-family: monospace;
+  font-size: 1rem;
+  padding: 0.3rem 0.35rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.time-input-sec {
+  width: 76px;
+  text-align: center;
+  font-weight: 800;
+  font-family: monospace;
+  font-size: 1rem;
+  padding: 0.3rem 0.35rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.time-input-min:focus,
+.time-input-sec:focus {
+  outline: none;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}
+
+.time-unit-label {
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #0369a1;
+  padding: 0 0.15rem;
+}
+
+.time-preview-badge {
+  display: inline-block;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-family: monospace;
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid #bae6fd;
+}
+
+/* 班級出賽選手卡片清單 */
+.roster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.1rem;
+}
+
+.roster-card {
+  background: #fff;
+  border: 1px solid #e0f2fe;
+  border-radius: 12px;
+  padding: 1.15rem;
+  box-shadow: 0 3px 10px rgba(14, 165, 233, 0.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.roster-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(14, 165, 233, 0.1);
+  border-color: #bae6fd;
+}
+
+.roster-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.roster-athlete-name {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.roster-event-name {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0284c7;
+}
+
+.roster-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  font-size: 0.84rem;
+  color: #64748b;
+  margin-top: 0.6rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.roster-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* 體育老師工作分配看板 */
+.teacher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+
+.teacher-btn {
+  background: #fff;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.9rem 0.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: #334155;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.teacher-btn:hover {
+  border-color: #38bdf8;
+  background: #f0f9ff;
+  transform: translateY(-2px);
+}
+
+.teacher-btn.active {
+  background: linear-gradient(135deg, #0284c7, #0ea5e9);
+  border-color: #0284c7;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+}
+
+.teacher-duty-count {
+  font-size: 0.78rem;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+}
+
+.teacher-btn.active .teacher-duty-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.line-copy-box {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  border-radius: 10px;
+  padding: 0.95rem 1.35rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 800;
+  margin-bottom: 1.35rem;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.28);
+  transition: all 0.2s;
+}
+
+.line-copy-box:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  transform: translateY(-1px);
+}
+
+.line-preview {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 1.1rem;
+  font-family: monospace;
+  font-size: 0.88rem;
+  white-space: pre-wrap;
+  color: #1e293b;
+  max-height: 290px;
+  overflow-y: auto;
+}
+
+/* 歷年趨勢圖卡 */
+.trend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1.35rem;
+}
+
+.trend-card {
+  background: #fff;
+  border: 1px solid #e0f2fe;
+  border-radius: var(--radius);
+  padding: 1.35rem;
+  box-shadow: var(--shadow);
+}
+
+.trend-header {
+  font-weight: 800;
+  font-size: 1.1rem;
+  margin-bottom: 0.85rem;
+  color: #0369a1;
+}
+
+/* 後台輸入表格專用樣式 */
+.foul-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.foul-btn {
+  background: #f1f5f9;
+  border: none;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+  font-weight: 800;
+  color: #334155;
+  transition: background 0.15s;
+}
+
+.foul-btn:hover {
+  background: #e2e8f0;
+}
+
+.foul-val {
+  padding: 0.35rem 0.65rem;
+  font-weight: 900;
+  font-family: monospace;
+  min-width: 32px;
+  text-align: center;
+  background: #fff;
+}
+
+/* 浮動提示 Toast */
+#toast-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.toast {
+  background: #0f172a;
+  color: #fff;
+  padding: 0.85rem 1.35rem;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* 彈出視窗 Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  display: none;
+}
+
+.modal-overlay.active {
+  display: flex;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.modal-card {
+  background: #fff;
+  border-radius: var(--radius);
+  max-width: 650px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+  padding: 1.6rem;
+  border: 1px solid #e0f2fe;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 0.75rem;
+}
+
+.modal-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #0369a1;
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  font-size: 1.6rem;
+  cursor: pointer;
+  color: #94a3b8;
+}
+
+/* 大螢幕投影展示模式 (Projector Mode) */
+body.projector-mode {
+  background: #0a0f1d;
+  color: #f8fafc;
+}
+
+body.projector-mode .card {
+  background: #131b2e;
+  border-color: #23314e;
+  color: #f8fafc;
+}
+
+body.projector-mode table.data-table {
+  background: #131b2e;
+  color: #f8fafc;
+  font-size: 1.3rem;
+}
+
+body.projector-mode table.data-table th {
+  background: #1e293b;
+  color: #38bdf8;
+  font-size: 1.2rem;
+  padding: 1.1rem 1.3rem;
+}
+
+body.projector-mode table.data-table td {
+  border-bottom-color: #23314e;
+  padding: 1.1rem 1.3rem;
+  font-weight: 700;
+}
+
+body.projector-mode .podium-score {
+  font-size: 2.3rem;
+  background: #1e293b;
+  color: #38bdf8;
+}
+
+body.projector-mode .podium-team {
+  font-size: 1.9rem;
+}
+
+body.projector-mode .podium-athlete {
+  font-size: 1.35rem;
+}
+
+/* 響應式優化 */
+@media (max-width: 768px) {
+  .header-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .brand-title h1 {
+    font-size: 1.2rem;
+  }
+  .nav-item {
+    padding: 0.8rem 1rem;
+    font-size: 0.88rem;
+  }
+  .card {
+    padding: 1rem;
+  }
+  .form-group {
+    width: 100%;
+  }
+}
+
+/* 列印專用樣式 (@media print) */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  header.app-header,
+  nav.app-nav,
+  .filter-bar,
+  .btn,
+  .no-print,
+  #toast-container {
+    display: none !important;
+  }
+  main.app-main {
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  .card {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .print-header h2 {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+  }
+  .print-header h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+  table.data-table th, table.data-table td {
+    border: 1px solid #000 !important;
+    color: #000 !important;
+    padding: 0.5rem !important;
+  }
+  .print-signatures {
+    display: flex !important;
+    justify-content: space-between;
+    margin-top: 3rem;
+    font-weight: bold;
+  }
+}
+
+.print-only {
+  display: none;
+}
+
+/* ========================================== */
+/* Excel 匯入模組與預覽元件樣式               */
+/* ========================================== */
+.excel-drop-area {
+  border: 2px dashed #0284c7;
+  background: #f0f9ff;
+  border-radius: 12px;
+  padding: 2.2rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.excel-drop-area:hover, .excel-drop-area.drag-over {
+  border-color: #0369a1;
+  background: #e0f2fe;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.15);
+}
+
+.excel-stat-badge {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.excel-stat-badge .stat-label {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.excel-stat-badge .stat-val {
+  font-weight: 800;
+  color: #0f172a;
+}
+
