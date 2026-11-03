@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>新北市立頭前國民中學 115學年度校慶運動大會田徑賽事 - 智慧賽務與即時榜單系統</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+  <!-- 頂部頁首與即時狀態 (明亮清爽風格，已移除縮寫標籤) -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-title">
+          <h1>
+            <span>新北市立頭前國民中學</span>
+            <div class="header-year-selector-wrap" title="點選切換不同學年度之賽事資料與歷史紀錄">
+              <select id="header-academic-year-select" class="header-year-select" onchange="switchAcademicYear(this.value)">
+                <option value="115">115學年度校慶</option>
+              </select>
+              <span class="header-year-arrow">▼</span>
+            </div>
+            <span id="header-academic-year-badge" style="display:none;">115學年度校慶</span>
+          </h1>
+          <div class="sub-title">運動大會田徑賽事 智慧賽務與即時榜單系統</div>
+        </div>
+      </div>
+
+      <div class="header-status">
+        <div class="status-pill" id="live-clock">2026/11/02 00:00:00</div>
+        <div class="status-pill" id="header-sync-pill" onclick="openSyncConfigModal()" style="cursor:pointer;" title="點擊設定多人雲端即時同步 (Google Apps Script)">
+          <span class="status-dot"></span><span>單機/離線模式</span>
+        </div>
+        <button class="btn-header" id="btn-header-auth" onclick="handleHeaderAuthClick()">
+          🔑 管理者登入
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主導覽選單 (未登入時隱藏體育組裁判執勤看板) -->
+  <nav class="app-nav">
+    <div class="nav-container">
+      <div class="nav-item active" data-tab="leaderboard">
+        🏆 即時榜單與頒獎看板
+      </div>
+      <div class="nav-item" data-tab="search">
+        🔍 班級與賽程檢錄查詢
+      </div>
+      <div class="nav-item" data-tab="schedule">
+        📅 大會賽程總表
+      </div>
+      <div class="nav-item admin-nav-hidden" id="nav-teacher-tab" data-tab="teacher" style="display:none !important;">
+        👔 體育組裁判執勤看板
+      </div>
+      <div class="nav-item" id="nav-admin-tab" data-tab="admin">
+        🔒 後台成績登錄與管理
+      </div>
+    </div>
+  </nav>
+
+  <!-- 主要內容區 -->
+  <main class="app-main">
+
+    <!-- ============================================== -->
+    <!-- 分頁 1: 即時榜單與頒獎看板 (Live Leaderboard) -->
+    <!-- ============================================== -->
+    <section class="tab-pane active" id="tab-leaderboard">
+      <div class="card">
+        <!-- 頂部視角切換列 (競賽項目賽況 vs 班級運動會總積分查詢) -->
+        <div class="leaderboard-subnav" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem; border-bottom:2px solid #e0f2fe; padding-bottom:0.85rem; flex-wrap:wrap; gap:0.75rem;">
+          <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+            <button id="subtab-btn-events" class="btn btn-sm btn-primary" onclick="setLeaderboardSubTab('events')" style="font-size:0.95rem; font-weight:800; border-radius:8px; padding:0.45rem 1.15rem;">
+              🏃 各單項與接力賽況成績
+            </button>
+            <button id="subtab-btn-points" class="btn btn-sm btn-secondary" onclick="setLeaderboardSubTab('points')" style="font-size:0.95rem; font-weight:800; border-radius:8px; padding:0.45rem 1.15rem; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe;">
+              📊 班級運動會總積分查詢
+            </button>
+          </div>
+          <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--text-muted);">
+            <span class="status-dot" style="background:#10b981; box-shadow:0 0 6px #10b981;"></span>
+            <span>後台成績登錄：<strong>0 延遲即時自動重算</strong></span>
+          </div>
+        </div>
+
+        <!-- 視角 A: 各單項與接力賽況成績 (原本的榜單與頒獎台) -->
+        <div id="leaderboard-events-view">
+          <!-- 項目篩選列 -->
+          <div class="filter-bar" id="event-pills">
+            <span class="filter-group-label">競賽項目：</span>
+            <div class="filter-pill active" data-event="grandRelay" onclick="setLeaderboardEvent('grandRelay')">🏃 大隊接力</div>
+            <div class="filter-pill" data-event="relay4x200" onclick="setLeaderboardEvent('relay4x200')">⚡ 4X200M 接力</div>
+            <div class="filter-pill" data-event="100m" onclick="setLeaderboardEvent('100m')">💨 100M預賽</div>
+            <div class="filter-pill" data-event="100m_finals" onclick="setLeaderboardEvent('100m_finals')">🏆 100M決賽</div>
+            <div class="filter-pill" data-event="200m" onclick="setLeaderboardEvent('200m')">💨 200M預賽</div>
+            <div class="filter-pill" data-event="200m_finals" onclick="setLeaderboardEvent('200m_finals')">🏆 200M決賽</div>
+            <div class="filter-pill" data-event="400m" onclick="setLeaderboardEvent('400m')">⏱️ 400公尺</div>
+            <div class="filter-pill" data-event="800m" onclick="setLeaderboardEvent('800m')">🏃 800公尺</div>
+            <div class="filter-pill" data-event="1500m" onclick="setLeaderboardEvent('1500m')">🏃 1500公尺</div>
+            <div class="filter-pill" data-event="shotPut" onclick="setLeaderboardEvent('shotPut')">💣 鉛球</div>
+            <div class="filter-pill" data-event="longJump" onclick="setLeaderboardEvent('longJump')">👟 跳遠</div>
+            <div class="filter-pill" data-event="classPoints" onclick="setLeaderboardSubTab('points')" style="background:#e0e7ff; color:#4338ca; border-color:#c7d2fe; font-weight:800;">📊 班級總積分查詢</div>
+          </div>
+
+          <!-- 年級篩選列 -->
+          <div class="filter-bar" id="grade-pills">
+            <span class="filter-group-label">參賽年級：</span>
+            <div class="filter-pill" data-grade="all" onclick="setLeaderboardGrade('all')">全校各年級</div>
+            <div class="filter-pill active" data-grade="七年級" onclick="setLeaderboardGrade('七年級')">七年級</div>
+            <div class="filter-pill" data-grade="八年級" onclick="setLeaderboardGrade('八年級')">八年級</div>
+            <div class="filter-pill" data-grade="九年級" onclick="setLeaderboardGrade('九年級')">九年級</div>
+          </div>
+
+          <!-- 性別篩選列 (大隊接力不分男女組自動隱藏，單項賽事自動顯示) -->
+          <div class="filter-bar" id="gender-pills" style="display:none;">
+            <span class="filter-group-label">組別：</span>
+            <div class="filter-pill active" data-gender="all" onclick="setLeaderboardGender('all')">全部組別</div>
+            <div class="filter-pill" data-gender="男生組" onclick="setLeaderboardGender('男生組')">男生組</div>
+            <div class="filter-pill" data-gender="女生組" onclick="setLeaderboardGender('女生組')">女生組</div>
+          </div>
+
+          <!-- 動態榜單容器 -->
+          <div id="leaderboard-content" style="margin-top:1rem;">
+            <!-- 由 app.js 動態渲染 -->
+          </div>
+        </div>
+
+        <!-- 視角 B: 班級運動會總積分查詢模組 (Class Points Inquiry) -->
+        <div id="leaderboard-points-view" style="display:none;">
+          <!-- 班級積分查詢控制列 -->
+          <div class="points-controls-card" style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:1.1rem 1.35rem; margin-bottom:1.35rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.85rem; margin-bottom:0.75rem;">
+              <div style="display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                <label for="class-points-select" style="font-weight:800; color:#0f172a; font-size:1.02rem; display:flex; align-items:center; gap:0.35rem;">
+                  <span>🏫 選擇查詢班級或總覽：</span>
+                </label>
+                <select id="class-points-select" class="form-control" style="min-width:300px; font-weight:700; font-size:0.95rem; border-color:#93c5fd; background:#ffffff;" onchange="onClassPointsSelectChange(this.value)">
+                  <!-- 由 app.js 動態生成 48 班與全學年總榜 -->
+                </select>
+              </div>
+
+              <!-- 快速年級與總榜篩選按鈕組 -->
+              <div class="filter-bar" style="margin:0; padding:0; gap:0.45rem;">
+                <span class="filter-group-label" style="font-size:0.85rem;">快速切換：</span>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="quickSelectClassPoints('701')" style="padding:0.3rem 0.75rem; font-size:0.85rem; font-weight:700;">七年級</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="quickSelectClassPoints('801')" style="padding:0.3rem 0.75rem; font-size:0.85rem; font-weight:700;">八年級</button>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="quickSelectClassPoints('901')" style="padding:0.3rem 0.75rem; font-size:0.85rem; font-weight:700;">九年級</button>
+                <button type="button" class="btn btn-sm btn-primary" onclick="quickSelectClassPoints('all-7')" style="padding:0.3rem 0.75rem; font-size:0.85rem; font-weight:700; background:#4f46e5; border-color:#4338ca;">🏆 年級總排行榜</button>
+              </div>
+            </div>
+
+            <!-- 計分規則速查與連動說明 -->
+            <div style="font-size:0.84rem; color:#475569; line-height:1.55; border-top:1px dashed #cbd5e1; padding-top:0.65rem;">
+              <span>⚖️ <strong>大會名次計分規則：</strong>個人單項（含 800M 接力）前 8 名配分 <strong>9, 7, 6, 5, 4, 3, 2, 1 分</strong>；大隊接力（15班以上規格）<strong>積分加倍 18, 14, 12, 10, 8, 6, 4, 2 分</strong>；並列者依規定皆得該名次完整分數。後台管理員登錄成績後即時連動計算更新。</span>
+            </div>
+          </div>
+
+          <!-- 動態積分與得分履歷渲染區 -->
+          <div id="class-points-content">
+            <!-- 由 app.js 動態渲染 -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 分頁 2: 班級與賽程檢錄查詢 (Class Lookup)      -->
+    <!-- ============================================== -->
+    <section class="tab-pane" id="tab-search">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🔍 班級賽程與檢錄提醒查詢</div>
+          <span style="font-size:0.88rem; color:var(--text-muted);">選擇班級即可快速掌握該班所有選手出場時程</span>
+        </div>
+
+        <!-- 查詢控制器 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">選擇班級：</label>
+            <select class="form-control" id="search-class-select" onchange="onClassChange()">
+              <!-- 由 app.js 動態生成 701~716, 801~816, 901~916 -->
+            </select>
+          </div>
+
+          <div class="form-group" style="flex:1; min-width:280px;">
+            <label class="form-label">選擇比賽日期：</label>
+            <select class="form-control" id="search-date-select" onchange="onDateChange()">
+              <!-- 由 app.js 動態生成並標註該班是否有出賽 -->
+            </select>
+          </div>
+        </div>
+
+        <!-- 醒目檢錄提醒卡片 -->
+        <div class="alert-banner">
+          <div class="alert-icon">⏰</div>
+          <div class="alert-content">
+            <h4>檢錄集合時間與地點重要提醒</h4>
+            <p>請出賽選手務必於<strong>【賽前 10 分鐘完成檢錄】</strong>。鉛球項目請至<strong>【鉛球場檢錄】</strong>、跳遠項目請至<strong>【跳遠場檢錄】</strong>、其餘所有徑賽與接力賽項目統一至<strong>【操場檢錄】</strong>。請佩戴號碼布或攜帶學生證以利查驗，唱名三次不到者視同棄權！</p>
+          </div>
+        </div>
+
+        <!-- 班級選手與賽程卡片 -->
+        <div id="class-roster-container">
+          <!-- 由 app.js 動態渲染 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 分頁 3: 大會賽程總表 (Master Schedule)         -->
+    <!-- ============================================== -->
+    <section class="tab-pane" id="tab-schedule">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📅 115學年度校慶單項田徑賽賽程總表</div>
+          <span style="font-size:0.88rem; color:var(--text-muted);">涵蓋 11/2 至 12/12 全校 21 節次賽程規範</span>
+        </div>
+        <div id="master-schedule-container">
+          <!-- 由 app.js 動態渲染 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 分頁 4: 體育組裁判執勤看板 (Teacher Duty)       -->
+    <!-- ============================================== -->
+    <section class="tab-pane" id="tab-teacher">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">👔 體育組裁判與工作人員專屬執勤看板</div>
+          <span style="font-size:0.88rem; color:var(--text-muted);">點選教師姓名即可產出個人出勤時段與專屬 LINE 通知文字</span>
+        </div>
+
+        <!-- 教師選擇卡片按鈕列 -->
+        <div class="teacher-grid" id="teacher-pills-container">
+          <!-- 由 app.js 動態渲染 忠哲, 騰毅, 兆裕, 承瑋, 惠芳, 黃威, 嘉慶, 淑靜, 明昌, 聰達, 蕭豐, 虔怡 -->
+        </div>
+
+        <!-- 教師個人執勤內容與 LINE 複製區 -->
+        <div id="teacher-duty-content">
+          <!-- 由 app.js 動態渲染 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================== -->
+    <!-- 後台成績登錄與管理 (Admin)                      -->
+    <!-- ============================================== -->
+    <section class="tab-pane" id="tab-admin">
+      <div class="card">
+        <!-- 管理者登入狀態橫幅 -->
+        <div class="admin-session-bar" style="display:flex; justify-content:space-between; align-items:center; background:#f0f9ff; border:1px solid #bae6fd; padding:0.6rem 1rem; border-radius:8px; margin-bottom:1.2rem; flex-wrap:wrap; gap:0.5rem;">
+          <div style="color:#0369a1; font-weight:700; font-size:0.92rem;">
+            👤 當前登入管理者：<span id="admin-user-display" style="font-weight:900; color:#0284c7;">--</span>
+            <span style="font-size:0.84rem; color:#64748b; margin-left:0.5rem;">（已開啟體育組裁判執勤看板與成績登錄權限）</span>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="logoutAdmin()" style="border-color:#fca5a5; color:#ef4444; background:#ffffff;">
+            🔒 登出管理者
+          </button>
+        </div>
+
+        <div class="card-header">
+          <div class="card-title">🔒 後台成績登錄、犯規調整與系統管理</div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="openSyncConfigModal()">
+              ☁️ 多人雲端同步設定
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="loadRealisticSampleScores()">
+              ⚡ 快速帶入示範成績
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="clearAllMatchScores()" title="清空全站目前已登記的所有比賽成績、試跳/擲距離與犯規紀錄（選手名冊與分組道次將完整保留）" style="color:#b91c1c; border-color:#fca5a5; background:#fff5f5; font-weight:700;">
+              🧹 清空比賽成績
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="createNewAcademicYear()">
+              ➕ 建立新學年度 (116/117)
+            </button>
+            <button class="btn btn-primary btn-sm" onclick="openExcelImportModal()" style="background:#0284c7; font-weight:800; box-shadow:0 2px 6px rgba(2,132,199,0.28);">
+              📊 上傳 Excel 匯入賽程名單 (.xlsx)
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="exportMeetDataJs()" style="background:#e0f2fe; color:#0369a1; border-color:#7dd3fc; font-weight:800;" title="將目前輸入的所有成績與調整名單匯出為 meet_data.js，直接上傳覆蓋 GitHub 即可讓全校所有手機電腦看到最新成績">
+              📥 匯出 meet_data.js (上傳 GitHub 全校同步)
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="exportDataAsJSON()" title="將目前所有輸入的成績、犯規次數與名單下載成備份檔案">
+              📥 匯出備份 (JSON)
+            </button>
+            <label class="btn btn-secondary btn-sm" style="margin:0; cursor:pointer;" title="選取先前下載的 JSON 備份檔，還原或轉移所有賽事成績">
+              📤 匯入還原 (JSON)
+              <input type="file" accept=".json" style="display:none;" onchange="importDataFromJSON(event)">
+            </label>
+          </div>
+        </div>
+
+        <!-- 編輯項目選擇器 -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">選擇登錄項目：</label>
+            <select class="form-control" id="admin-event-select">
+              <option value="grandRelay">🏃 大隊接力 (如：4分15秒34，加罰5秒/次)</option>
+              <option value="relay4x200">⚡ 4X200M 接力 (如：1分52秒40)</option>
+              <option value="100m">💨 100公尺預賽 (如：12秒35)</option>
+              <option value="100m_finals">🏆 100公尺決賽 (如：12秒10)</option>
+              <option value="200m">💨 200公尺預賽 (如：25秒80)</option>
+              <option value="200m_finals">🏆 200公尺決賽 (如：25秒30)</option>
+              <option value="400m">⏱️ 400公尺決賽 (如：1分02秒15)</option>
+              <option value="800m">🏃 800公尺決賽 (如：2分35秒40)</option>
+              <option value="1500m">🏃 1500公尺決賽 (如：4分58秒12)</option>
+              <option value="shotPut">💣 鉛球決賽 (3次試擲)</option>
+              <option value="longJump">👟 跳遠決賽 (3次試跳)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">年級：</label>
+            <select class="form-control" id="admin-grade-select">
+              <option value="七年級">七年級</option>
+              <option value="八年級">八年級</option>
+              <option value="九年級">九年級</option>
+              <option value="all">全部年級</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">組別：</label>
+            <select class="form-control" id="admin-gender-select">
+              <option value="混組">全班出賽 (大隊接力)</option>
+              <option value="男生組">男生組</option>
+              <option value="女生組">女生組</option>
+              <option value="all">全部性別</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 成績登錄輸入表格 -->
+        <div id="admin-edit-table-container">
+          <!-- 由 app.js 動態渲染 -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================== -->
+  <!-- 彈出視窗：管理者登入驗證 (Admin Auth Modal)    -->
+  <!-- ============================================== -->
+  <div class="modal-overlay" id="admin-auth-modal">
+    <div class="modal-card" style="max-width:420px;">
+      <div class="modal-header">
+        <div class="modal-title">🔒 管理者身分登入</div>
+        <button class="modal-close" onclick="closeAdminAuthModal()">&times;</button>
+      </div>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1.2rem;">
+        本專區設有權限控管，請輸入管理者帳號與密碼以解鎖裁判執勤看板與賽事成績登錄權限。
+      </p>
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label class="form-label">管理者帳號：</label>
+        <input type="text" class="form-control" id="admin-username-input" placeholder="請輸入帳號" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('admin-password-input').focus()">
+      </div>
+      <div class="form-group" style="margin-bottom:1.3rem;">
+        <label class="form-label">管理者密碼：</label>
+        <input type="password" class="form-control" id="admin-password-input" placeholder="請輸入密碼" autocomplete="current-password" onkeydown="if(event.key==='Enter') verifyAdminLogin()">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+        <button class="btn btn-secondary" onclick="closeAdminAuthModal()">取消</button>
+        <button class="btn btn-primary" onclick="verifyAdminLogin()">登入系統</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- 彈出視窗：多人雲端同步設定 (Sync Config Modal) -->
+  <!-- ============================================== -->
+  <div class="modal-overlay" id="sync-config-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">☁️ 多人雲端即時同步設定 (Google Apps Script)</div>
+        <button class="modal-close" onclick="closeSyncConfigModal()">&times;</button>
+      </div>
+      <p style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1rem;">
+        透過 Google Apps Script 串接 Google 試算表，每 5 秒自動輪詢（polling），組長平板鍵入成績後，大螢幕與全校裝置即時連動變更名次！
+      </p>
+
+      <div class="form-group" style="margin-bottom:1rem;">
+        <label class="form-label">Google Apps Script Web App 網址：</label>
+        <input type="url" class="form-control" id="gas-url-input" value="https://script.google.com/macros/s/AKfycbzDWLgvkjLhHcVQBSa1AcMWPbu78C8Eqkhu7G92Mng7_UZEpZxjvqQfdWYvwqHO1YdL/exec" placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+      </div>
+
+      <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1.25rem;">
+        <input type="checkbox" id="gas-polling-toggle" style="width:18px; height:18px; cursor:pointer;" checked>
+        <label for="gas-polling-toggle" style="font-size:0.95rem; font-weight:700; cursor:pointer;">
+          啟用每 5 秒自動輪詢同步 (Auto 5s Polling)
+        </label>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <button class="btn btn-secondary btn-sm" onclick="showGasTutorialModal()">
+          📖 查看 Google Apps Script 部署程式碼與教學
+        </button>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn btn-secondary" onclick="closeSyncConfigModal()">取消</button>
+          <button class="btn btn-primary" onclick="saveSyncConfig()">儲存設定</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- 彈出視窗：Google Apps Script 教學 (GAS Tutorial) -->
+  <!-- ============================================== -->
+  <div class="modal-overlay" id="gas-tutorial-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title">📖 Google 試算表雲端同步部署指南</div>
+        <button class="modal-close" onclick="closeGasTutorialModal()">&times;</button>
+      </div>
+      <div style="font-size:0.9rem; color:#334155; line-height:1.65;">
+        <ol style="padding-left:1.2rem; margin-bottom:1rem;">
+          <li>在 Google 雲端硬碟建立一份新的 Google 試算表（命名為「校慶運動會成績資料庫」）。</li>
+          <li>點選上方選單<strong>「擴充功能」 -> 「Apps Script」</strong>。</li>
+          <li>將專案根目錄中的 <code>google_apps_script.js</code> 程式碼完整複製並貼上到 Apps Script。</li>
+          <li>點選右上角<strong>「部署」 -> 「新增部署作業」 -> 「網頁應用程式 (Web App)」</strong>。</li>
+          <li>將「誰可以存取」設定為<strong>「所有人 (Anyone)」</strong>，點選部署。</li>
+          <li>複製產生的網頁應用程式網址，貼入本系統的同步設定中即可！</li>
+        </ol>
+      </div>
+      <div style="display:flex; justify-content:flex-end;">
+        <button class="btn btn-primary" onclick="closeGasTutorialModal()">我了解了</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- 彈出視窗：Excel 一鍵匯入賽程與選手名單        -->
+  <!-- ============================================== -->
+  <div class="modal-overlay" id="excel-import-modal">
+    <div class="modal-card" style="max-width:680px;">
+      <div class="modal-header">
+        <div class="modal-title">📊 匯入新學年度 Excel 賽程與選手名單</div>
+        <button class="modal-close" onclick="closeExcelImportModal()">&times;</button>
+      </div>
+      
+      <div style="font-size:0.92rem; color:#475569; line-height:1.6; margin-bottom:1rem;">
+        請直接選取或拖曳體育組排定之分組分道 Excel 檔案（格式如 <code>田徑比賽_分組分道結果-ALL.xlsx</code>）。系統將在瀏覽器內自動辨識並解析所有項目、選手名冊與裁判工作表。
+      </div>
+
+      <div class="form-row" style="margin-bottom:1rem;">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" style="font-weight:700;">設定學年度：</label>
+          <input type="text" class="form-control" id="excel-academic-year-input" placeholder="例如：116" value="116">
+          <small style="color:#64748b;">將自動更新全校各看板標題為「XXX學年度校慶」</small>
+        </div>
+      </div>
+
+      <!-- 拖曳上傳區塊 -->
+      <div id="excel-drop-zone" class="excel-drop-area" onclick="document.getElementById('excel-file-input').click()">
+        <input type="file" id="excel-file-input" accept=".xlsx, .xls" style="display:none;" onchange="handleExcelFileInput(event)">
+        <div style="font-size:2.8rem; margin-bottom:0.5rem;">📁</div>
+        <div style="font-weight:700; font-size:1.05rem; color:#0f172a; margin-bottom:0.25rem;">
+          點擊選取或拖曳 Excel 檔案至此
+        </div>
+        <div style="font-size:0.85rem; color:#64748b;">
+          支援格式：.xlsx 或 .xls 檔案（直接使用學校既有排道排賽表）
+        </div>
+      </div>
+
+      <!-- 讀取與解析狀態預覽 -->
+      <div id="excel-import-preview" style="display:none; margin-top:1.2rem; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:1rem;">
+        <div style="font-weight:800; color:#0369a1; margin-bottom:0.6rem; display:flex; align-items:center; gap:0.5rem;">
+          <span>✅ 檔案解析成功，資料預覽統計：</span>
+          <span id="preview-filename" style="font-size:0.85rem; color:#64748b; font-weight:normal;"></span>
+        </div>
+        <div id="preview-stats-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.6rem; font-size:0.88rem;">
+          <!-- 由 JS 動態填充 -->
+        </div>
+      </div>
+
+      <!-- 狀態提示 / 錯誤訊息 -->
+      <div id="excel-import-msg" style="margin-top:0.8rem; font-size:0.9rem;"></div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1.5rem; flex-wrap:wrap; gap:0.5rem;">
+        <button class="btn btn-secondary" onclick="closeExcelImportModal()">取消</button>
+        <button class="btn btn-primary" id="btn-apply-excel" onclick="applyImportedExcelMeetData()" disabled style="background:#0284c7; font-weight:800;">
+          🚀 確認啟用為當前年度賽事
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- 彈出視窗：管理員編輯選手資料與分組道次 Modal   -->
+  <!-- ============================================== -->
+  <div class="modal-overlay" id="edit-athlete-modal">
+    <div class="modal-card" style="max-width:520px;">
+      <div class="modal-header">
+        <div class="modal-title">✏️ 編輯選手資料與分組道次</div>
+        <button class="modal-close" onclick="closeEditAthleteModal()">&times;</button>
+      </div>
+      <div style="font-size:0.88rem; color:#64748b; margin-bottom:1rem;">
+        管理員可直接修正選手之姓名、座號、班級、出賽分組與道次序位。
+      </div>
+      <input type="hidden" id="edit-athlete-id">
+      <input type="hidden" id="edit-athlete-event">
+      <div class="form-row">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">參賽班級：</label>
+          <input type="text" class="form-control" id="edit-athlete-class" placeholder="如：701">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label">座號／號碼布：</label>
+          <input type="text" class="form-control" id="edit-athlete-bib" placeholder="如：15">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:0.75rem;">
+        <label class="form-label">選手姓名／代表隊名稱：</label>
+        <input type="text" class="form-control" id="edit-athlete-name" placeholder="選手姓名">
+      </div>
+      <div class="form-row" style="margin-top:0.75rem;">
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" id="edit-athlete-heat-label">組別／分組：</label>
+          <input type="text" class="form-control" id="edit-athlete-heat" placeholder="如：第 1 組">
+        </div>
+        <div class="form-group" style="flex:1;">
+          <label class="form-label" id="edit-athlete-lane-label">道次／出場序位：</label>
+          <input type="text" class="form-control" id="edit-athlete-lane" placeholder="如：3">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:0.75rem;">
+        <label class="form-label">備註說明：</label>
+        <input type="text" class="form-control" id="edit-athlete-remarks" placeholder="如：替換請假選手">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:0.5rem; margin-top:1.5rem;">
+        <button class="btn btn-secondary" onclick="closeEditAthleteModal()">取消</button>
+        <button class="btn btn-primary" onclick="submitAthleteEditModal()">💾 儲存修改並同步</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- 彈出視窗：修改名單資料與分組分道密碼驗證 Modal -->
+  <!-- ============================================== -->
+  <div class="modal-overlay" id="roster-auth-modal">
+    <div class="modal-card" style="max-width:420px;">
+      <div class="modal-header">
+        <div class="modal-title">🔒 選手名冊與分組分道安全授權</div>
+        <button class="modal-close" onclick="closeRosterAuthModal()">&times;</button>
+      </div>
+      <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:0.75rem 0.9rem; margin-bottom:1.1rem; font-size:0.88rem; color:#92400e; line-height:1.5;">
+        ⚠️ <strong>重要提醒：</strong> 修改選手姓名、座號、班級與出賽組別/道次涉及競賽公信力。請先輸入專用授權密碼確認身分。
+      </div>
+      <div class="form-group" style="margin-bottom:1.1rem;">
+        <label class="form-label">請輸入修改授權密碼：</label>
+        <input type="password" class="form-control" id="roster-auth-password-input" placeholder="請輸入授權密碼 (tqjh888)" autocomplete="current-password" onkeydown="if(event.key==='Enter') verifyRosterAuthPassword()">
+        <div id="roster-auth-err-msg" style="color:#ef4444; font-size:0.84rem; margin-top:0.4rem; display:none;"></div>
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:0.5rem;">
+        <button class="btn btn-secondary" onclick="closeRosterAuthModal()">取消</button>
+        <button class="btn btn-primary" onclick="verifyRosterAuthPassword()" style="background:#0284c7; font-weight:800;">
+          🔓 確認解鎖修改
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 列印專用動態容器 (A4 Print Layout) -->
+  <div id="print-zone" class="print-only"></div>
+
+  <!-- 浮動通知容器 -->
+  <div id="toast-container"></div>
+
+  <!-- 載入 SheetJS Excel 解析庫、官方資料與主程式 -->
+  <script src="xlsx.full.min.js"></script>
+  <script>
+    if (typeof XLSX === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script>');
+    }
+  </script>
+  <script src="meet_data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
