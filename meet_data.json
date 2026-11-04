@@ -19637,36 +19637,6 @@
         "rank": "",
         "remarks": "",
         "score": ""
-      },
-      {
-        "id": "RELAY_7_716",
-        "grade": "七年級",
-        "gender": "混組",
-        "event": "大隊接力",
-        "heat": "第 3 組",
-        "lane": 7,
-        "classId": "716",
-        "isSportsClass": true,
-        "rawScore": "",
-        "foulCount": 0,
-        "rank": "",
-        "remarks": "體育班",
-        "score": ""
-      },
-      {
-        "id": "RELAY_8_816",
-        "grade": "八年級",
-        "gender": "混組",
-        "event": "大隊接力",
-        "heat": "第 3 組",
-        "lane": 7,
-        "classId": "816",
-        "isSportsClass": true,
-        "rawScore": "",
-        "foulCount": 0,
-        "rank": "",
-        "remarks": "體育班",
-        "score": ""
       }
     ],
     "relay4x200": [
@@ -20918,6 +20888,8 @@
         "rank": "",
         "remarks": ""
       }
-    ]
+    ],
+    "e100m_finals": [],
+    "e200m_finals": []
   }
 }
