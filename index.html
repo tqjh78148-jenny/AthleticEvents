@@ -8,7 +8,7 @@
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
   <title>新北市立頭前國民中學 115學年度校慶運動大會田徑賽事 - 智慧賽務與即時榜單系統</title>
-  <link rel="stylesheet" href="app.css?v=20261109">
+  <link rel="stylesheet" href="app.css?v=20261109b">
 </head>
 <body>
 
@@ -82,9 +82,10 @@
               📊 班級運動會總積分查詢
             </button>
           </div>
-          <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--text-muted);">
+          <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.85rem; color:var(--text-muted); flex-wrap:wrap;">
             <span class="status-dot" style="background:#10b981; box-shadow:0 0 6px #10b981;"></span>
             <span>後台成績登錄：<strong>0 延遲即時自動重算</strong></span>
+            <button type="button" class="btn btn-sm" onclick="pullDataFromCloud(true)" style="padding:0.25rem 0.65rem; font-size:0.82rem; border-radius:6px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700; cursor:pointer;" title="點此強制連線 Google 雲端抓取最新成績">🔄 重新整理成績</button>
           </div>
         </div>
 
@@ -687,7 +688,7 @@
       document.write('<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script>');
     }
   </script>
-  <script src="meet_data.js?v=20261109"></script>
-  <script src="app.js?v=20261109"></script>
+  <script src="meet_data.js?v=20261109b"></script>
+  <script src="app.js?v=20261109b"></script>
 </body>
 </html>

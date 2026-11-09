@@ -416,7 +416,7 @@ function initApp() {
   });
 }
 
-function saveLocalData() {
+function saveLocalData(options = {}) {
   try {
     if (!APP_STATE.years) APP_STATE.years = {};
     if (APP_STATE.currentYear && APP_STATE.data) {
@@ -466,13 +466,13 @@ function saveLocalData() {
       } catch (e) {}
     }
 
-    showToast('💾 資料已自動保存至本機資料庫');
-    if (APP_STATE.sync.gasUrl) {
+    // 🛡️ 關鍵安全防線：只有明確指定 pushCloud: true 且身分為後台管理者時，才允許推送到 Google 雲端！
+    // 任何一般訪客瀏覽、手機開網頁、或頁面初始化 (initApp) 絕對不觸發推送，杜絕空資料覆蓋雲端！
+    if (options && options.pushCloud && APP_STATE.sync.gasUrl) {
       pushDataToCloud();
     }
   } catch (err) {
     console.error('Save failed:', err);
-    showToast('❌ 儲存失敗：' + err.message, 'error');
   }
 }
 
@@ -4282,8 +4282,7 @@ function sortAdminRosterByHeatAndLane(showSuccessToast = true) {
   sortEventListByHeatAndLane(list);
 
   // 3. 儲存並同步至所有視圖與列印模組
-  saveLocalData();
-  renderAdminEditTable();
+  saveLocalData({ pushCloud: true });
   renderLeaderboard();
   renderClassRoster();
 
@@ -4313,8 +4312,7 @@ function sortAdminFinalsBySeedRank(showSuccessToast = true) {
     return sA - sB;
   });
 
-  saveLocalData();
-  renderAdminEditTable();
+  saveLocalData({ pushCloud: true });
   renderLeaderboard();
   renderClassRoster();
 
@@ -4345,8 +4343,7 @@ function sortAdminRosterByClassAndBib(showSuccessToast = true) {
     return bibA - bibB;
   });
 
-  saveLocalData();
-  renderAdminEditTable();
+  saveLocalData({ pushCloud: true });
   renderLeaderboard();
   renderClassRoster();
 
@@ -4575,8 +4572,7 @@ function saveAdminEdits() {
     updateLeaderboardFilterPillsUI();
   }
 
-  saveLocalData();
-  renderAdminEditTable();
+  saveLocalData({ pushCloud: true });
   renderLeaderboard();
   renderClassRoster();
   if (APP_STATE.isRosterEditUnlocked) {
@@ -4642,8 +4638,7 @@ function clearCurrentEventScores() {
   }
   updateLeaderboardFilterPillsUI();
 
-  saveLocalData();
-  renderAdminEditTable();
+  saveLocalData({ pushCloud: true });
   renderLeaderboard();
   renderClassRoster();
 
@@ -4810,8 +4805,7 @@ function submitAthleteEditModal() {
 
   sortEventListByHeatAndLane(list);
 
-  saveLocalData();
-  renderAdminEditTable();
+  saveLocalData({ pushCloud: true });
   renderLeaderboard();
   renderClassRoster();
   closeEditAthleteModal();
@@ -4853,8 +4847,7 @@ function deleteAthleteOrClass(athleteId, eventKey) {
   }
 
   // 儲存並連動全站所有畫面與報表
-  saveLocalData();
-  renderAdminEditTable();
+  saveLocalData({ pushCloud: true });
   renderLeaderboard();
   renderClassRoster();
   renderMasterSchedule();
@@ -5088,8 +5081,7 @@ function submitAddAthleteModal() {
   if (gradeSelect) gradeSelect.value = grade;
   if (genderSelect) genderSelect.value = (evKey === 'grandRelay') ? '混組' : gender;
 
-  saveLocalData();
-  renderAdminEditTable();
+  saveLocalData({ pushCloud: true });
   renderLeaderboard();
   renderClassRoster();
   renderMasterSchedule();
@@ -6351,6 +6343,39 @@ if (typeof window !== 'undefined') {
 function pushDataToCloud() {
   if (!APP_STATE.sync.gasUrl) return;
 
+  // 🛡️ 訪客與非管理者防護：訪客端絕不可推送雲端，徹底防範無權限裝置洗掉後台成績！
+  if (!APP_STATE.isAdmin) {
+    console.log('[SafeGuard] 非管理員身分，阻止向 Google 雲端推送資料，保護現有賽事成績。');
+    return;
+  }
+
+  // 🛡️ 成績保險箱自動注入：推送前自動確保保險箱內所有歷史有效成績皆已注入，杜絕部分上傳漏掉其他項目
+  try {
+    const vaultRaw = localStorage.getItem('TQ_SCORE_VAULT');
+    if (vaultRaw && APP_STATE.data && APP_STATE.data.events) {
+      const vault = JSON.parse(vaultRaw);
+      Object.keys(APP_STATE.data.events).forEach(evKey => {
+        const currentList = APP_STATE.data.events[evKey];
+        if (Array.isArray(currentList)) {
+          currentList.forEach(target => {
+            if (!hasValidAthleteScore(target) && vault[target.id]) {
+              const b = vault[target.id];
+              if (b.score !== undefined && b.score !== null && b.score !== '') target.score = b.score;
+              if (b.rawScore !== undefined && b.rawScore !== null && b.rawScore !== '') target.rawScore = b.rawScore;
+              if (b.foulCount !== undefined) target.foulCount = b.foulCount;
+              if (b.att1 !== undefined && b.att1 !== null && b.att1 !== '') target.att1 = b.att1;
+              if (b.att2 !== undefined && b.att2 !== null && b.att2 !== '') target.att2 = b.att2;
+              if (b.att3 !== undefined && b.att3 !== null && b.att3 !== '') target.att3 = b.att3;
+              if (b.best !== undefined && b.best !== null && b.best !== '') target.best = b.best;
+              if (b.formattedBest) target.formattedBest = b.formattedBest;
+              if (b.formattedFinal) target.formattedFinal = b.formattedFinal;
+            }
+          });
+        }
+      });
+    }
+  } catch (e) {}
+
   const sep = APP_STATE.sync.gasUrl.includes('?') ? '&' : '?';
   const cacheBusterUrl = `${APP_STATE.sync.gasUrl}${sep}_t=${Date.now()}`;
 
@@ -6372,11 +6397,10 @@ function pushDataToCloud() {
 // 從瀏覽器歷史記憶（localStorage 與 TQ_SCORE_VAULT）救回/還原已登記之成績並同步推送到雲端
 function recoverLocalScores() {
   let recoveredCount = 0;
-  const storeRaw = localStorage.getItem('TQ_MEET_YEARS_STORE');
-  const singleRaw = localStorage.getItem('TQ_MEET_DATA_115');
-  const vaultRaw = localStorage.getItem('TQ_SCORE_VAULT');
+  const recoveredEvents = {};
 
   // 1. 從安全保險箱 (TQ_SCORE_VAULT) 優先比對恢復
+  const vaultRaw = localStorage.getItem('TQ_SCORE_VAULT');
   if (vaultRaw && APP_STATE.data && APP_STATE.data.events) {
     try {
       const vault = JSON.parse(vaultRaw);
@@ -6386,16 +6410,20 @@ function recoverLocalScores() {
           currentList.forEach(target => {
             if (!hasValidAthleteScore(target) && vault[target.id]) {
               const b = vault[target.id];
-              if (b.score !== undefined && b.score !== null && b.score !== '') target.score = b.score;
-              if (b.rawScore !== undefined && b.rawScore !== null && b.rawScore !== '') target.rawScore = b.rawScore;
-              if (b.foulCount !== undefined) target.foulCount = b.foulCount;
-              if (b.att1 !== undefined && b.att1 !== null && b.att1 !== '') target.att1 = b.att1;
-              if (b.att2 !== undefined && b.att2 !== null && b.att2 !== '') target.att2 = b.att2;
-              if (b.att3 !== undefined && b.att3 !== null && b.att3 !== '') target.att3 = b.att3;
-              if (b.best !== undefined && b.best !== null && b.best !== '') target.best = b.best;
+              let added = false;
+              if (b.score !== undefined && b.score !== null && b.score !== '') { target.score = b.score; added = true; }
+              if (b.rawScore !== undefined && b.rawScore !== null && b.rawScore !== '') { target.rawScore = b.rawScore; added = true; }
+              if (b.foulCount !== undefined) { target.foulCount = b.foulCount; }
+              if (b.att1 !== undefined && b.att1 !== null && b.att1 !== '') { target.att1 = b.att1; added = true; }
+              if (b.att2 !== undefined && b.att2 !== null && b.att2 !== '') { target.att2 = b.att2; added = true; }
+              if (b.att3 !== undefined && b.att3 !== null && b.att3 !== '') { target.att3 = b.att3; added = true; }
+              if (b.best !== undefined && b.best !== null && b.best !== '') { target.best = b.best; added = true; }
               if (b.formattedBest) target.formattedBest = b.formattedBest;
               if (b.formattedFinal) target.formattedFinal = b.formattedFinal;
-              recoveredCount++;
+              if (added) {
+                recoveredCount++;
+                recoveredEvents[evKey] = (recoveredEvents[evKey] || 0) + 1;
+              }
             }
           });
         }
@@ -6403,20 +6431,36 @@ function recoverLocalScores() {
     } catch (e) {}
   }
 
+  // 2. 深度遍歷所有 localStorage 與 sessionStorage 鍵值，搜尋任何歷史紀錄
   const candidates = [];
-  if (storeRaw) {
-    try {
-      const parsed = JSON.parse(storeRaw);
-      if (parsed && parsed.years && parsed.years['115']) candidates.push(parsed.years['115']);
-      if (parsed && parsed.data) candidates.push(parsed.data);
-    } catch (e) {}
-  }
-  if (singleRaw) {
-    try {
-      const parsed = JSON.parse(singleRaw);
-      if (parsed && parsed.events) candidates.push(parsed);
-    } catch (e) {}
-  }
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.includes('MEET') || k.includes('TQ_') || k.includes('VAULT') || k.includes('DATA'))) {
+        try {
+          const val = JSON.parse(localStorage.getItem(k));
+          if (val) {
+            if (val.events) candidates.push(val);
+            if (val.years) Object.values(val.years).forEach(y => y && y.events && candidates.push(y));
+            if (val.data && val.data.events) candidates.push(val.data);
+          }
+        } catch(e) {}
+      }
+    }
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const k = sessionStorage.key(i);
+      if (k && (k.includes('MEET') || k.includes('TQ_') || k.includes('VAULT') || k.includes('DATA'))) {
+        try {
+          const val = JSON.parse(sessionStorage.getItem(k));
+          if (val) {
+            if (val.events) candidates.push(val);
+            if (val.years) Object.values(val.years).forEach(y => y && y.events && candidates.push(y));
+            if (val.data && val.data.events) candidates.push(val.data);
+          }
+        } catch(e) {}
+      }
+    }
+  } catch(e) {}
 
   candidates.forEach(cand => {
     if (!cand || !cand.events) return;
@@ -6428,14 +6472,21 @@ function recoverLocalScores() {
           if (hasValidAthleteScore(candItem)) {
             const target = currentList.find(x => x.id === candItem.id || (x.classId === candItem.classId && x.name === candItem.name));
             if (target && !hasValidAthleteScore(target)) {
-              if (candItem.att1) target.att1 = candItem.att1;
-              if (candItem.att2) target.att2 = candItem.att2;
-              if (candItem.att3) target.att3 = candItem.att3;
-              if (candItem.best) target.best = candItem.best;
-              if (candItem.score) target.score = candItem.score;
-              if (candItem.rawScore) target.rawScore = candItem.rawScore;
+              let added = false;
+              if (candItem.att1) { target.att1 = candItem.att1; added = true; }
+              if (candItem.att2) { target.att2 = candItem.att2; added = true; }
+              if (candItem.att3) { target.att3 = candItem.att3; added = true; }
+              if (candItem.best) { target.best = candItem.best; added = true; }
+              if (candItem.score) { target.score = candItem.score; added = true; }
+              if (candItem.rawScore) { target.rawScore = candItem.rawScore; added = true; }
               if (candItem.foulCount !== undefined) target.foulCount = candItem.foulCount;
-              recoveredCount++;
+              if (candItem.formattedBest) target.formattedBest = candItem.formattedBest;
+              if (candItem.formattedFinal) target.formattedFinal = candItem.formattedFinal;
+              if (candItem.status) target.status = candItem.status;
+              if (added) {
+                recoveredCount++;
+                recoveredEvents[evKey] = (recoveredEvents[evKey] || 0) + 1;
+              }
             }
           }
         });
@@ -6448,9 +6499,23 @@ function recoverLocalScores() {
     renderAdminEditTable();
     renderLeaderboard();
     pushDataToCloud();
-    alert(`🎉 成功從本機暫存中尋回並恢復 ${recoveredCount} 筆比賽成績！\n已自動保存並推送到 Google 雲端！`);
+    const eventNameMap = {
+      'e100m': '100公尺預賽',
+      'e200m': '200公尺預賽',
+      'e400m': '400公尺決賽',
+      'e800m': '800公尺決賽',
+      'e1500m': '1500公尺決賽',
+      'shotPut': '鉛球決賽',
+      'longJump': '跳遠決賽',
+      'grandRelay': '大隊接力',
+      'relay4x200': '4x200接力',
+      'e100m_finals': '100公尺決賽',
+      'e200m_finals': '200公尺決賽'
+    };
+    const eventSummary = Object.keys(recoveredEvents).map(k => `• ${eventNameMap[k] || k}: ${recoveredEvents[k]} 筆`).join('\n');
+    alert(`🎉 成功從本機暫存中尋回並恢復 ${recoveredCount} 筆比賽成績！\n\n恢復項目明細：\n${eventSummary}\n\n✅ 已自動儲存並全數同步推送到 Google 雲端！`);
   } else {
-    alert('🔍 本機暫存目前無其他已登錄之歷史成績。\n\n提示：\n1. 請確認上方【組別】是否選為「男生組」或「女生組」（鉛球分為男生與女生組，若選「混組」會顯示空白）。\n2. 若是在另一台電腦輸入的，請在該台電腦上執行此功能。\n3. 可打開 Google 試算表，從「檔案」->「版本歷史紀錄」尋回先前紀錄。');
+    alert('🔍 本機暫存目前無其他已登錄之歷史成績。\n\n提示：\n1. 請確認上方【組別】是否選為「男生組」或「女生組」（鉛球與跳遠分為男生與女生組，若選「混組」會顯示空白）。\n2. 若是在另一台電腦輸入的，請在該台電腦上執行此功能。\n3. 可打開 Google 試算表，從「檔案」->「版本歷史紀錄」尋回先前紀錄。\n4. 也可在那台電腦點擊【📥 匯出備份 (JSON)】，再拿到這台電腦【📤 匯入還原】。');
   }
 }
 window.recoverLocalScores = recoverLocalScores;
