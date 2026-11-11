@@ -1317,7 +1317,7 @@ function renderLeaderboard() {
         <div class="alert-icon">🏆</div>
         <div class="alert-content">
           <h4 style="color:#b45309;">短跑決賽（100M / 200M）競賽與優勢道次規範</h4>
-          <p style="color:#78350f;">由預賽跨組總排名前 12 名選手組成：<strong>第 1 組為預賽第 7~12 名、第 2 組為預賽第 1~6 名</strong>，各組依預賽名次排定優勢跑道（組內第 1 名排第 3 道、第 2 名排第 4 道、第 3 名排第 5 道、第 4 名排第 2 道、第 5 名排第 6 道、第 6 名排第 1 道）。決賽以秒數升冪決定最終前 8 名優勝，前 3 名頒發金銀銅牌。</p>
+          <p style="color:#78350f;">由預賽跨組總排名前 12 名選手組成：<strong>第 1 組為預賽第 7~12 名、第 2 組為預賽第 1~6 名</strong>，各組依預賽名次排定優勢跑道（組內第 1 名排第 3 道、第 2 名排第 4 道、第 3 名排第 5 道、第 4 名排第 2 道、第 5 名排第 6 道、第 6 名排第 1 道）。決賽依秒數升冪並採<strong>【體育班並列制度】</strong>（普通班前 8 名名額獨立計算、絕不被體育班擠佔，體育班依規章並列名次），決定最終前 8 名優勝，前 3 名頒發金銀銅牌並正式計入班級總積分。</p>
         </div>
       </div>
     `;
@@ -3625,6 +3625,10 @@ function verifyAdminLogin() {
     const target = APP_STATE.pendingTabAfterLogin || 'admin';
     APP_STATE.pendingTabAfterLogin = null;
     switchTab(target);
+    // 登入後立即檢查並同步本機與雲端（若有本機未上傳之新成績立即推送雲端）
+    if (typeof pullDataFromCloud === 'function') {
+      pullDataFromCloud(true);
+    }
   } else {
     showToast('❌ 帳號或密碼錯誤，請重新輸入', 'error');
     pwdInput.value = '';
@@ -4550,8 +4554,8 @@ function triggerGenerateSprintFinals(prelimKey, grade, gender) {
   const remaining = APP_STATE.data.events[finalsArrayKey].filter(x => !(x.grade === grade && x.gender === gender));
   APP_STATE.data.events[finalsArrayKey] = [...remaining, ...finalsList];
 
-  // 5. 本地儲存
-  saveLocalData();
+  // 5. 本地儲存並立即同步雲端
+  saveLocalData({ pushCloud: true });
 
   // 6. 自動切換至決賽頁面 (後台、前台榜單、下拉選單同步更新)
   APP_STATE.adminEdit.event = finalKey;
@@ -5594,7 +5598,7 @@ function importDataFromJSON(event) {
         return;
       }
 
-      saveLocalData();
+      saveLocalData({ pushCloud: true });
       updateAcademicYearHeaderUI();
       initClassSearchOptions();
       renderLeaderboard();
@@ -5603,7 +5607,7 @@ function importDataFromJSON(event) {
       initTeacherDashboard();
       renderTeacherDuties();
       renderAdminEditTable();
-      showToast('📤 賽事資料已成功自 JSON 完整還原！');
+      showToast('📤 賽事資料已成功自 JSON 完整還原並同步雲端！');
     } catch (err) {
       alert('匯入解析失敗：' + err.message);
     } finally {
@@ -6294,7 +6298,7 @@ async function pullDataFromCloud(isManualForce = false) {
       if (json.data) {
         const localScores = countTotalScoresInDataset(APP_STATE.data);
         const cloudScores = countTotalScoresInDataset(json.data);
-        if (localScores > 0 && cloudScores === 0) {
+        if (localScores > 0 && cloudScores === 0 && APP_STATE.isAdminUnlocked) {
           console.log(`[SafeSync] 本機有 ${localScores} 筆成績，而雲端尚無成績，自動將本機成績推送到雲端保護資料！`);
           pushDataToCloud();
           return;
@@ -6313,9 +6317,11 @@ async function pullDataFromCloud(isManualForce = false) {
           APP_STATE.years[APP_STATE.currentYear || '115'] = APP_STATE.data;
           localStorage.setItem('TQ_MEET_DATA_115', JSON.stringify(APP_STATE.data));
 
-          // 若本機持有雲端尚未收錄之有效成績，自動將合併後的完整資料推送至雲端保護
+          // 若已登入管理員之本機持有雲端尚未收錄之有效成績或新生成決賽名單，自動將合併後的完整資料推送至雲端保護
           const mergedScores = countTotalScoresInDataset(APP_STATE.data);
-          if (mergedScores > cloudScores) {
+          const hasNewFinalsRoster = ((APP_STATE.data.events && APP_STATE.data.events.e100m_finals ? APP_STATE.data.events.e100m_finals.length : 0) > (json.data.events && json.data.events.e100m_finals ? json.data.events.e100m_finals.length : 0)) ||
+            ((APP_STATE.data.events && APP_STATE.data.events.e200m_finals ? APP_STATE.data.events.e200m_finals.length : 0) > (json.data.events && json.data.events.e200m_finals ? json.data.events.e200m_finals.length : 0));
+          if ((mergedScores > cloudScores || hasNewFinalsRoster) && APP_STATE.isAdminUnlocked) {
             pushDataToCloud();
           }
           
@@ -6346,7 +6352,7 @@ async function pullDataFromCloud(isManualForce = false) {
             showToast('⚡ 已透過防快取通道強制同步雲端最新成績！');
           }
         }
-      } else if (APP_STATE.data) {
+      } else if (APP_STATE.data && APP_STATE.isAdminUnlocked) {
         pushDataToCloud();
       }
     }
@@ -6370,8 +6376,8 @@ if (typeof window !== 'undefined') {
 function pushDataToCloud() {
   if (!APP_STATE.sync.gasUrl) return;
 
-  // 🛡️ 訪客與非管理者防護：訪客端絕不可推送雲端，徹底防範無權限裝置洗掉後台成績！
-  if (!APP_STATE.isAdmin) {
+  // 🛡️ 訪客與非管理者防護：唯有已登入後台之管理者 (APP_STATE.isAdminUnlocked) 方可推送雲端，徹底防範一般訪客洗掉後台成績！
+  if (!APP_STATE.isAdminUnlocked) {
     console.log('[SafeGuard] 非管理員身分，阻止向 Google 雲端推送資料，保護現有賽事成績。');
     return;
   }
@@ -6542,7 +6548,14 @@ function recoverLocalScores() {
     const eventSummary = Object.keys(recoveredEvents).map(k => `• ${eventNameMap[k] || k}: ${recoveredEvents[k]} 筆`).join('\n');
     alert(`🎉 成功從本機暫存中尋回並恢復 ${recoveredCount} 筆比賽成績！\n\n恢復項目明細：\n${eventSummary}\n\n✅ 已自動儲存並全數同步推送到 Google 雲端！`);
   } else {
-    alert('🔍 本機暫存目前無其他已登錄之歷史成績。\n\n提示：\n1. 請確認上方【組別】是否選為「男生組」或「女生組」（鉛球與跳遠分為男生與女生組，若選「混組」會顯示空白）。\n2. 若是在另一台電腦輸入的，請在該台電腦上執行此功能。\n3. 可打開 Google 試算表，從「檔案」->「版本歷史紀錄」尋回先前紀錄。\n4. 也可在那台電腦點擊【📥 匯出備份 (JSON)】，再拿到這台電腦【📤 匯入還原】。');
+    const currentTotal = countTotalScoresInDataset(APP_STATE.data);
+    if (currentTotal > 0 && APP_STATE.isAdminUnlocked && APP_STATE.sync.gasUrl) {
+      saveLocalData();
+      pushDataToCloud();
+      alert(`✅ 已將目前本機中的 ${currentTotal} 筆成績完整同步推送到 Google 雲端！\n\n請稍待數秒後重新整理網頁或手機查看最新成績。\n（本機無其他未恢復之歷史暫存成績。）`);
+    } else {
+      alert('🔍 本機暫存目前無其他已登錄之歷史成績。\n\n提示：\n1. 請確認上方【組別】是否選為「男生組」或「女生組」（鉛球與跳遠分為男生與女生組，若選「混組」會顯示空白）。\n2. 若是在另一台電腦輸入的，請在該台電腦上執行此功能。\n3. 可打開 Google 試算表，從「檔案」->「版本歷史紀錄」尋回先前紀錄。\n4. 也可在那台電腦點擊【📥 匯出備份 (JSON)】，再拿到這台電腦【📤 匯入還原】。');
+    }
   }
 }
 window.recoverLocalScores = recoverLocalScores;
