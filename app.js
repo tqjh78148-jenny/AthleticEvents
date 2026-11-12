@@ -83,6 +83,16 @@ function hasValidAthleteScore(item) {
   return false;
 }
 
+// 判定該選手/班級是否有任何輸入紀錄（含犯規 X、請假、備註等，供安全合併保留紀錄用）
+function hasRecordedEntry(item) {
+  if (!item) return false;
+  if (hasValidAthleteScore(item)) return true;
+  const checkStr = v => v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== '--';
+  return checkStr(item.score) || checkStr(item.rawScore) || checkStr(item.best) ||
+    checkStr(item.att1) || checkStr(item.att2) || checkStr(item.att3) ||
+    (item.foulCount !== undefined && item.foulCount > 0) || checkStr(item.remarks);
+}
+
 // 計算資料集中總有效成績筆數
 function countTotalScoresInDataset(data) {
   if (!data || !data.events) return 0;
@@ -120,29 +130,41 @@ function mergeEventDatasets(baseData, incomingData) {
         // 新增的選手或班級直接加入
         baseList.push(JSON.parse(JSON.stringify(inItem)));
       } else {
-        // 選手已存在：若 incoming 含有有效成績，且 base 尚未有成績，則採納 incoming 成績
+        // 選手已存在：若 incoming 有任何有效成績或試擲/犯規/備註紀錄，皆安全合併（不以空白覆蓋既有成績）
+        const isNonEmpty = v => v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== '--';
         if (hasValidAthleteScore(inItem) && !hasValidAthleteScore(match)) {
-          if (inItem.score !== undefined && inItem.score !== null && inItem.score !== '') match.score = inItem.score;
-          if (inItem.rawScore !== undefined && inItem.rawScore !== null && inItem.rawScore !== '') match.rawScore = inItem.rawScore;
+          if (isNonEmpty(inItem.score)) match.score = inItem.score;
+          if (isNonEmpty(inItem.rawScore)) match.rawScore = inItem.rawScore;
           if (inItem.foulCount !== undefined) match.foulCount = inItem.foulCount;
-          if (inItem.att1 !== undefined && inItem.att1 !== null && inItem.att1 !== '') match.att1 = inItem.att1;
-          if (inItem.att2 !== undefined && inItem.att2 !== null && inItem.att2 !== '') match.att2 = inItem.att2;
-          if (inItem.att3 !== undefined && inItem.att3 !== null && inItem.att3 !== '') match.att3 = inItem.att3;
-          if (inItem.best !== undefined && inItem.best !== null && inItem.best !== '') match.best = inItem.best;
+          if (isNonEmpty(inItem.att1)) match.att1 = inItem.att1;
+          if (isNonEmpty(inItem.att2)) match.att2 = inItem.att2;
+          if (isNonEmpty(inItem.att3)) match.att3 = inItem.att3;
+          if (isNonEmpty(inItem.best)) match.best = inItem.best;
           if (inItem.bestDistance !== undefined && inItem.bestDistance !== null) match.bestDistance = inItem.bestDistance;
           if (inItem.formattedBest) match.formattedBest = inItem.formattedBest;
           if (inItem.formattedFinal) match.formattedFinal = inItem.formattedFinal;
           if (inItem.rank) match.rank = inItem.rank;
-          if (inItem.remarks) match.remarks = inItem.remarks;
+          if (isNonEmpty(inItem.remarks)) match.remarks = inItem.remarks;
         } else if (hasValidAthleteScore(inItem) && hasValidAthleteScore(match)) {
-          // 雙方皆有成績：若 incoming 較完整或有新數據則補充更新，絕不洗白
-          if (inItem.foulCount !== undefined && match.foulCount === 0) match.foulCount = inItem.foulCount;
-          if (inItem.att2 && !match.att2) match.att2 = inItem.att2;
-          if (inItem.att3 && !match.att3) match.att3 = inItem.att3;
-          if (inItem.best && (!match.best || parseFloat(inItem.best) > parseFloat(match.best))) {
+          // 雙方皆有成績：補充較完整欄位（包含補入第1/2/3次試擲或備註），絕不洗白
+          if (inItem.foulCount !== undefined && !match.foulCount) match.foulCount = inItem.foulCount;
+          if (isNonEmpty(inItem.att1) && !isNonEmpty(match.att1)) match.att1 = inItem.att1;
+          if (isNonEmpty(inItem.att2) && !isNonEmpty(match.att2)) match.att2 = inItem.att2;
+          if (isNonEmpty(inItem.att3) && !isNonEmpty(match.att3)) match.att3 = inItem.att3;
+          if (isNonEmpty(inItem.best) && (!match.best || parseFloat(inItem.best) > parseFloat(match.best))) {
             match.best = inItem.best;
             match.formattedBest = inItem.formattedBest || match.formattedBest;
           }
+          if (isNonEmpty(inItem.remarks) && !isNonEmpty(match.remarks)) match.remarks = inItem.remarks;
+        } else if (hasRecordedEntry(inItem) && !hasValidAthleteScore(match)) {
+          // 補充犯規「X」、請假、備註等紀錄，避免三擲皆犯規 (X, X, X) 在同步後遺失！
+          if (isNonEmpty(inItem.score) && !isNonEmpty(match.score)) match.score = inItem.score;
+          if (isNonEmpty(inItem.rawScore) && !isNonEmpty(match.rawScore)) match.rawScore = inItem.rawScore;
+          if (inItem.foulCount !== undefined && !match.foulCount) match.foulCount = inItem.foulCount;
+          if (isNonEmpty(inItem.att1) && !isNonEmpty(match.att1)) match.att1 = inItem.att1;
+          if (isNonEmpty(inItem.att2) && !isNonEmpty(match.att2)) match.att2 = inItem.att2;
+          if (isNonEmpty(inItem.att3) && !isNonEmpty(match.att3)) match.att3 = inItem.att3;
+          if (isNonEmpty(inItem.remarks) && !isNonEmpty(match.remarks)) match.remarks = inItem.remarks;
         }
         // 若 incoming 為空白而 base 已有成績，則絕對嚴格保留 base 原有成績！
       }
@@ -748,84 +770,73 @@ function calculateEventWithMultiplePERule(athletes, isHigherBetter = true) {
     item.rankText = `第 ${idx + 1} 名`;
     item.isSportsClass = false;
     item.isTiedWithSports = false;
+    item.isTied = false;
   });
 
-  // 3. 處理體育班比對並列
-  // 若體育班有多人且成績都高於普通班第一名：
-  // pe[0] 並列第 1 名，pe[1] 並列第 2 名，以此類推
-  pe.forEach((peAthlete, peIdx) => {
+  // 3. 處理體育班依序比對並防重複佔用同一名次 (minAvailableRank 順延機制)
+  // 每位體育班選手只能與「不同的普通班名次」並列，不可兩位體育班選手佔用同一個並列名次
+  let minAvailableRank = 1;
+
+  pe.forEach(peAthlete => {
     peAthlete.isSportsClass = true;
+    peAthlete.isTied = false;
     if (normal.length === 0) {
-      peAthlete.rank = peIdx + 1;
-      peAthlete.rankNumber = peIdx + 1;
-      peAthlete.rankText = `第 ${peIdx + 1} 名`;
+      peAthlete.rank = minAvailableRank;
+      peAthlete.rankNumber = minAvailableRank;
+      peAthlete.rankText = `第 ${minAvailableRank} 名`;
       peAthlete.isTiedWithSports = false;
+      minAvailableRank++;
       return;
     }
 
-    const peScore = peAthlete.score;
-    const top1Normal = normal[0];
-    const isPeBetterThanTop1 = isHigherBetter 
-      ? (peScore >= top1Normal.score) 
-      : (peScore <= top1Normal.score);
-
-    if (isPeBetterThanTop1) {
-      // 若體育班第 1 人比普通班第 1 名好 -> 並列第 1 名
-      if (peIdx === 0) {
-        peAthlete.rank = 1;
-        peAthlete.rankNumber = 1;
-        peAthlete.rankText = '並列第 1 名';
-        peAthlete.isTiedWithSports = true;
-        top1Normal.rank = 1;
-        top1Normal.rankNumber = 1;
-        top1Normal.rankText = '並列第 1 名';
-        top1Normal.isTiedWithSports = true;
+    // 找出普通班中第一個成績差於或等於此體育班選手的基準名次 (含田賽同分次佳比對)
+    let naturalRank = normal.length + 1;
+    for (let i = 0; i < normal.length; i++) {
+      let isBetterOrEqual = false;
+      if (isHigherBetter) {
+        if (peAthlete.score > normal[i].score) {
+          isBetterOrEqual = true;
+        } else if (peAthlete.score === normal[i].score) {
+          const peSec = peAthlete.secondBestVal !== undefined ? peAthlete.secondBestVal : 0;
+          const normSec = normal[i].secondBestVal !== undefined ? normal[i].secondBestVal : 0;
+          if (peSec > normSec) {
+            isBetterOrEqual = true;
+          } else if (peSec === normSec) {
+            const peThird = peAthlete.thirdBestVal !== undefined ? peAthlete.thirdBestVal : 0;
+            const normThird = normal[i].thirdBestVal !== undefined ? normal[i].thirdBestVal : 0;
+            if (peThird >= normThird) isBetterOrEqual = true;
+          }
+        }
       } else {
-        // 體育班第 2 人如果也比普通班第 1 名好，依照規則與普通班第 2 名【並列第 2 名】
-        const targetNormalRank = peIdx + 1;
-        peAthlete.rank = targetNormalRank;
-        peAthlete.rankNumber = targetNormalRank;
-        peAthlete.rankText = `並列第 ${targetNormalRank} 名`;
-        peAthlete.isTiedWithSports = true;
-        if (normal[peIdx]) {
-          normal[peIdx].rank = targetNormalRank;
-          normal[peIdx].rankNumber = targetNormalRank;
-          normal[peIdx].rankText = `並列第 ${targetNormalRank} 名`;
-          normal[peIdx].isTiedWithSports = true;
-        }
+        isBetterOrEqual = (peAthlete.score <= normal[i].score);
       }
-    } else {
-      // 體育班成績未超越普通班第一名，落入一般區間比對
-      let matched = false;
-      for (let i = 1; i < normal.length; i++) {
-        const prev = normal[i - 1];
-        const curr = normal[i];
-        const isBetween = isHigherBetter
-          ? (peScore <= prev.score && peScore >= curr.score)
-          : (peScore >= prev.score && peScore <= curr.score);
 
-        if (isBetween) {
-          const targetRank = i + 1;
-          peAthlete.rank = targetRank;
-          peAthlete.rankNumber = targetRank;
-          peAthlete.rankText = `並列第 ${targetRank} 名`;
-          peAthlete.isTiedWithSports = true;
-          curr.rank = targetRank;
-          curr.rankNumber = targetRank;
-          curr.rankText = `並列第 ${targetRank} 名`;
-          curr.isTiedWithSports = true;
-          matched = true;
-          break;
-        }
-      }
-      if (!matched) {
-        const lastRank = normal.length + peIdx + 1;
-        peAthlete.rank = lastRank;
-        peAthlete.rankNumber = lastRank;
-        peAthlete.rankText = `第 ${lastRank} 名`;
-        peAthlete.isTiedWithSports = false;
+      if (isBetterOrEqual) {
+        naturalRank = i + 1;
+        break;
       }
     }
+
+    // 取 naturalRank 與 minAvailableRank 的較大值，防止多位體育班選手擠在同一名次
+    const assignedRank = Math.max(naturalRank, minAvailableRank);
+    peAthlete.rank = assignedRank;
+    peAthlete.rankNumber = assignedRank;
+
+    const targetNormal = normal[assignedRank - 1];
+    if (targetNormal) {
+      peAthlete.rankText = `並列第 ${assignedRank} 名`;
+      peAthlete.isTiedWithSports = true;
+      peAthlete.isTied = true;
+      targetNormal.rankText = `並列第 ${assignedRank} 名`;
+      targetNormal.isTiedWithSports = true;
+      targetNormal.isTied = true;
+    } else {
+      peAthlete.rankText = `第 ${assignedRank} 名`;
+      peAthlete.isTiedWithSports = false;
+    }
+
+    // 推進下一個體育班選手可用的最小名次
+    minAvailableRank = assignedRank + 1;
   });
 
   // 4. 依名次合併輸出
