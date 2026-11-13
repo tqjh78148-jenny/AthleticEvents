@@ -1120,20 +1120,24 @@ body.projector-mode .podium-athlete {
   #print-zone {
     display: block !important;
     width: 100% !important;
+    box-sizing: border-box !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 0 1.5mm !important;
     color: #000 !important;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif !important;
   }
 
   @page {
     size: A4 portrait;
-    margin: 10mm 12mm 12mm 12mm;
+    margin: 8mm 10mm 8mm 10mm;
   }
 
   .print-page {
     page-break-after: always;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
+    box-sizing: border-box !important;
+    padding: 0 1mm !important;
+    width: 100% !important;
   }
   .print-page:last-child {
     page-break-after: avoid;
@@ -1142,62 +1146,69 @@ body.projector-mode .podium-athlete {
   .print-doc-header {
     text-align: center;
     border-bottom: 2px solid #000;
-    padding-bottom: 6px;
-    margin-bottom: 10px;
+    padding-bottom: 4px;
+    margin-bottom: 6px;
   }
   .print-doc-header h2 {
-    font-size: 16pt;
+    font-size: 15pt;
     font-weight: 900;
-    margin: 0 0 3px 0;
+    margin: 0 0 2px 0;
     letter-spacing: 0.5px;
     color: #000 !important;
   }
   .print-doc-header h3 {
-    font-size: 13pt;
+    font-size: 12pt;
     font-weight: 800;
-    margin: 0 0 5px 0;
+    margin: 0 0 4px 0;
     color: #111 !important;
   }
   .print-doc-meta {
     display: flex;
     justify-content: space-between;
-    font-size: 9.5pt;
+    font-size: 9pt;
     color: #000;
     font-weight: 600;
-    margin-top: 4px;
+    margin-top: 2px;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
 
   .print-notice-box {
     border: 1.5px solid #000;
     background: #f8fafc !important;
-    padding: 6px 10px;
-    font-size: 9pt;
-    line-height: 1.5;
-    margin-bottom: 10px;
+    padding: 4px 8px;
+    font-size: 8.5pt;
+    line-height: 1.4;
+    margin-bottom: 6px;
     border-radius: 4px;
     color: #000 !important;
   }
 
   table.print-table {
     width: 100% !important;
+    max-width: 100% !important;
     border-collapse: collapse !important;
-    margin-top: 8px;
-    margin-bottom: 12px;
-    font-size: 9pt;
+    box-sizing: border-box !important;
+    margin-top: 4px;
+    margin-bottom: 8px;
+    font-size: 8.5pt;
     page-break-inside: auto;
   }
   table.print-table th, table.print-table td {
     border: 1px solid #000 !important;
-    padding: 5px 4px !important;
+    padding: 3px 2px !important;
     color: #000 !important;
     text-align: center;
     vertical-align: middle;
+    box-sizing: border-box !important;
   }
   table.print-table th {
     background-color: #f1f5f9 !important;
     font-weight: 800;
+  }
+  table.print-table th:last-child,
+  table.print-table td:last-child {
+    border-right: 1.5px solid #000 !important;
   }
   table.print-table tr {
     page-break-inside: avoid;
@@ -1206,20 +1217,20 @@ body.projector-mode .podium-athlete {
 
   .print-check-box {
     display: inline-block;
-    width: 13px;
-    height: 13px;
+    width: 12px;
+    height: 12px;
     border: 1.2px solid #000;
     vertical-align: middle;
-    margin: 0 2px;
+    margin: 0 1px;
   }
 
   .print-signatures {
     display: flex !important;
     justify-content: space-between !important;
-    margin-top: 22px;
-    font-size: 9.5pt;
+    margin-top: 14px;
+    font-size: 9pt;
     font-weight: 700;
-    padding: 0 10px;
+    padding: 0 6px;
     page-break-inside: avoid;
   }
 }

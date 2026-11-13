@@ -736,42 +736,60 @@ function calculateEventWithMultiplePERule(athletes, isHigherBetter = true) {
   const normal = valid.filter(a => !getClassStr(a).endsWith('16'));
   const pe = valid.filter(a => getClassStr(a).endsWith('16'));
 
-  // 2. 普通班先獨立排序並賦予基準名次 (1, 2, 3...)
-  if (isHigherBetter) {
-    normal.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.secondBestVal !== undefined && a.secondBestVal !== undefined && b.secondBestVal !== a.secondBestVal) {
-        return b.secondBestVal - a.secondBestVal;
+  // 2. 普通班與體育班各自依成績由優至劣排序
+  const sortFn = isHigherBetter
+    ? (a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        if (b.secondBestVal !== undefined && a.secondBestVal !== undefined && b.secondBestVal !== a.secondBestVal) {
+          return b.secondBestVal - a.secondBestVal;
+        }
+        if (b.thirdBestVal !== undefined && a.thirdBestVal !== undefined && b.thirdBestVal !== a.thirdBestVal) {
+          return b.thirdBestVal - a.thirdBestVal;
+        }
+        return 0;
       }
-      if (b.thirdBestVal !== undefined && a.thirdBestVal !== undefined && b.thirdBestVal !== a.thirdBestVal) {
-        return b.thirdBestVal - a.thirdBestVal;
-      }
-      return 0;
-    });
-    pe.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.secondBestVal !== undefined && a.secondBestVal !== undefined && b.secondBestVal !== a.secondBestVal) {
-        return b.secondBestVal - a.secondBestVal;
-      }
-      if (b.thirdBestVal !== undefined && a.thirdBestVal !== undefined && b.thirdBestVal !== a.thirdBestVal) {
-        return b.thirdBestVal - a.thirdBestVal;
-      }
-      return 0;
-    });
-  } else {
-    normal.sort((a, b) => a.score - b.score);
-    pe.sort((a, b) => a.score - b.score);
+    : (a, b) => a.score - b.score;
+
+  normal.sort(sortFn);
+  pe.sort(sortFn);
+
+  // 普通班賦予基準名次 (含同成績並列與 1224 跳號機制: 1, 2, 3, 3, 5...)
+  function isSamePerformance(a, b) {
+    if (!a || !b) return false;
+    if (a.score === null || a.score === undefined || b.score === null || b.score === undefined) return false;
+    if (Math.abs(a.score - b.score) > 0.0001) return false;
+    if (isHigherBetter) {
+      const a2 = a.secondBestVal !== undefined ? a.secondBestVal : 0;
+      const b2 = b.secondBestVal !== undefined ? b.secondBestVal : 0;
+      if (Math.abs(a2 - b2) > 0.0001) return false;
+      const a3 = a.thirdBestVal !== undefined ? a.thirdBestVal : 0;
+      const b3 = b.thirdBestVal !== undefined ? b.thirdBestVal : 0;
+      if (Math.abs(a3 - b3) > 0.0001) return false;
+    }
+    return true;
   }
 
-  // 設定普通班基礎名次 (名次固定，絕對不可被體育班選手擠壓退後)
-  normal.forEach((item, idx) => {
-    item.rank = idx + 1;
-    item.rankNumber = idx + 1;
-    item.rankText = `第 ${idx + 1} 名`;
+  // 設定普通班基礎名次 (名次固定，絕對不可被體育班選手擠壓退後；同成績並列，下一位跳號)
+  for (let idx = 0; idx < normal.length; idx++) {
+    const item = normal[idx];
     item.isSportsClass = false;
     item.isTiedWithSports = false;
-    item.isTied = false;
-  });
+    if (idx > 0 && isSamePerformance(item, normal[idx - 1])) {
+      item.rank = normal[idx - 1].rank;
+    } else {
+      item.rank = idx + 1;
+    }
+    item.rankNumber = item.rank;
+  }
+
+  // 設定普通班 isTied 與 rankText
+  for (let idx = 0; idx < normal.length; idx++) {
+    const item = normal[idx];
+    const tiedWithOtherNormal = (idx > 0 && normal[idx - 1].rank === item.rank) ||
+                                (idx + 1 < normal.length && normal[idx + 1].rank === item.rank);
+    item.isTied = tiedWithOtherNormal;
+    item.rankText = item.isTied ? `並列第 ${item.rank} 名` : `第 ${item.rank} 名`;
+  }
 
   // 3. 處理體育班依序比對並防重複佔用同一名次 (minAvailableRank 順延機制)
   // 每位體育班選手只能與「不同的普通班名次」並列，不可兩位體育班選手佔用同一個並列名次
@@ -796,12 +814,12 @@ function calculateEventWithMultiplePERule(athletes, isHigherBetter = true) {
       if (isHigherBetter) {
         if (peAthlete.score > normal[i].score) {
           isBetterOrEqual = true;
-        } else if (peAthlete.score === normal[i].score) {
+        } else if (Math.abs(peAthlete.score - normal[i].score) < 0.0001) {
           const peSec = peAthlete.secondBestVal !== undefined ? peAthlete.secondBestVal : 0;
           const normSec = normal[i].secondBestVal !== undefined ? normal[i].secondBestVal : 0;
           if (peSec > normSec) {
             isBetterOrEqual = true;
-          } else if (peSec === normSec) {
+          } else if (Math.abs(peSec - normSec) < 0.0001) {
             const peThird = peAthlete.thirdBestVal !== undefined ? peAthlete.thirdBestVal : 0;
             const normThird = normal[i].thirdBestVal !== undefined ? normal[i].thirdBestVal : 0;
             if (peThird >= normThird) isBetterOrEqual = true;
@@ -812,7 +830,7 @@ function calculateEventWithMultiplePERule(athletes, isHigherBetter = true) {
       }
 
       if (isBetterOrEqual) {
-        naturalRank = i + 1;
+        naturalRank = normal[i].rank;
         break;
       }
     }
@@ -822,14 +840,16 @@ function calculateEventWithMultiplePERule(athletes, isHigherBetter = true) {
     peAthlete.rank = assignedRank;
     peAthlete.rankNumber = assignedRank;
 
-    const targetNormal = normal[assignedRank - 1];
-    if (targetNormal) {
+    const matchingNormals = normal.filter(n => n.rank === assignedRank);
+    if (matchingNormals.length > 0) {
       peAthlete.rankText = `並列第 ${assignedRank} 名`;
       peAthlete.isTiedWithSports = true;
       peAthlete.isTied = true;
-      targetNormal.rankText = `並列第 ${assignedRank} 名`;
-      targetNormal.isTiedWithSports = true;
-      targetNormal.isTied = true;
+      matchingNormals.forEach(n => {
+        n.rankText = `並列第 ${assignedRank} 名`;
+        n.isTiedWithSports = true;
+        n.isTied = true;
+      });
     } else {
       peAthlete.rankText = `第 ${assignedRank} 名`;
       peAthlete.isTiedWithSports = false;
@@ -2887,7 +2907,7 @@ function printCheckinRoster(eventKey, grade, gender) {
       lastHeat = curHeat;
       rowsHtml += `
         <tr style="background:#f1f5f9; font-weight:800;">
-          <td colspan="8" style="text-align:left; padding:5px 12px; color:#0369a1; font-size:9.5pt;">
+          <td colspan="8" style="text-align:left; padding:2px 8px; color:#0369a1; font-size:8.5pt;">
             🚩 【${curHeat}】
           </td>
         </tr>
@@ -2905,9 +2925,9 @@ function printCheckinRoster(eventKey, grade, gender) {
         <td style="text-align:center;"><strong>${a.classId} 班</strong> ${a.isSportsClass ? '(體)' : ''}</td>
         ${!isGrandRelay && eventKey !== 'relay4x200' ? `
           <td style="text-align:center;">${a.bib || '--'}</td>
-          <td style="font-weight:700; text-align:left; padding-left:10px;">${a.name || '--'}</td>
+          <td style="font-weight:700; text-align:left; padding-left:6px;">${a.name || '--'}</td>
         ` : `
-          <td colspan="2" style="font-weight:700; text-align:left; padding-left:10px;">${teamOrName}</td>
+          <td colspan="2" style="font-weight:700; text-align:left; padding-left:6px;">${teamOrName}</td>
         `}
         <td style="text-align:center;">
           <span class="print-check-box"></span> 到 &nbsp;
@@ -2916,7 +2936,7 @@ function printCheckinRoster(eventKey, grade, gender) {
         <td style="text-align:center;">
           <span class="print-check-box"></span> 已查驗
         </td>
-        <td style="text-align:left; font-size:8.5pt;">${a.remarks || ''}</td>
+        <td style="text-align:left; font-size:8pt; white-space:nowrap; padding:2px 4px;">${a.remarks || ''}</td>
       </tr>
     `;
   });
@@ -2941,14 +2961,14 @@ function printCheckinRoster(eventKey, grade, gender) {
       <table class="print-table">
         <thead>
           <tr>
-            <th style="width:40px; text-align:center;">序號</th>
-            <th style="width:75px; text-align:center;">出賽組別</th>
-            <th style="width:75px; text-align:center;">${isField ? '出場順位' : '比賽道次'}</th>
-            <th style="width:75px; text-align:center;">班級</th>
-            ${!isGrandRelay && eventKey !== 'relay4x200' ? '<th style="width:60px; text-align:center;">座號</th><th style="text-align:left; padding-left:10px;">選手姓名</th>' : '<th colspan="2" style="text-align:left; padding-left:10px;">參賽代表隊</th>'}
-            <th style="width:105px; text-align:center;">檢錄到場</th>
-            <th style="width:95px; text-align:center;">號碼布/衣</th>
-            <th style="width:115px; text-align:left;">備註說明</th>
+            <th style="width:34px; text-align:center;">序號</th>
+            <th style="width:68px; text-align:center;">出賽組別</th>
+            <th style="width:68px; text-align:center;">${isField ? '出場順位' : '比賽道次'}</th>
+            <th style="width:68px; text-align:center;">班級</th>
+            ${!isGrandRelay && eventKey !== 'relay4x200' ? '<th style="width:45px; text-align:center;">座號</th><th style="width:85px; text-align:left; padding-left:6px;">選手姓名</th>' : '<th colspan="2" style="text-align:left; padding-left:6px;">參賽代表隊</th>'}
+            <th style="width:95px; text-align:center;">檢錄到場</th>
+            <th style="width:85px; text-align:center;">號碼布/衣</th>
+            <th style="text-align:left; padding-left:6px;">備註說明</th>
           </tr>
         </thead>
         <tbody>
@@ -2978,6 +2998,7 @@ function printBlankScoreSheet(eventKey, grade, gender) {
 
   const isGrandRelay = (eventKey === 'grandRelay');
   const isField = (eventKey === 'shotPut' || eventKey === 'longJump');
+  const isSprintFinals = (eventKey === '100m_finals' || eventKey === '200m_finals');
 
   let list = getAdminCurrentEventList(eventKey);
 
@@ -3013,10 +3034,10 @@ function printBlankScoreSheet(eventKey, grade, gender) {
     const curHeat = a.heat || a.flight || '第 1 組';
     if (curHeat !== lastHeat) {
       lastHeat = curHeat;
-      const colspan = isGrandRelay ? 10 : (isField ? 11 : 11);
+      const colspan = isGrandRelay ? 10 : (isField ? 11 : (isSprintFinals ? 10 : 11));
       rowsHtml += `
         <tr style="background:#f1f5f9; font-weight:800;">
-          <td colspan="${colspan}" style="text-align:left; padding:5px 12px; color:#0369a1; font-size:9.5pt;">
+          <td colspan="${colspan}" style="text-align:left; padding:2px 8px; color:#0369a1; font-size:8.5pt;">
             🚩 【${curHeat}】
           </td>
         </tr>
@@ -3034,20 +3055,20 @@ function printBlankScoreSheet(eventKey, grade, gender) {
         <td style="text-align:center;"><strong>${a.classId} 班</strong> ${a.isSportsClass ? '(體)' : ''}</td>
         ${!isGrandRelay && eventKey !== 'relay4x200' ? `
           <td style="text-align:center;">${a.bib || '--'}</td>
-          <td style="font-weight:700; text-align:left; padding-left:10px;">${a.name || '--'}</td>
+          <td style="font-weight:700; text-align:left; padding-left:6px;">${a.name || '--'}</td>
         ` : `
-          <td colspan="2" style="font-weight:700; text-align:left; padding-left:10px;">${teamOrName}</td>
+          <td colspan="2" style="font-weight:700; text-align:left; padding-left:6px;">${teamOrName}</td>
         `}
 
         ${isGrandRelay ? `
-          <td style="height:32px;"></td>
+          <td style="height:25px;"></td>
           <td></td>
           <td></td>
           <td></td>
         ` : ''}
 
         ${isField ? `
-          <td style="height:32px;"></td>
+          <td style="height:25px;"></td>
           <td></td>
           <td></td>
           <td></td>
@@ -3055,14 +3076,14 @@ function printBlankScoreSheet(eventKey, grade, gender) {
         ` : ''}
 
         ${!isGrandRelay && !isField ? `
-          <td style="height:32px;"></td>
+          <td style="height:25px;"></td>
           <td></td>
           <td></td>
-          <td></td>
+          ${!isSprintFinals ? '<td></td>' : ''}
           <td></td>
         ` : ''}
 
-        <td style="text-align:left; font-size:8.5pt;">${a.remarks || ''}</td>
+        <td style="text-align:left; font-size:8pt; white-space:nowrap; padding:2px 4px;">${a.remarks || ''}</td>
       </tr>
     `;
   });
@@ -3087,36 +3108,36 @@ function printBlankScoreSheet(eventKey, grade, gender) {
       <table class="print-table">
         <thead>
           <tr>
-            <th style="width:35px; text-align:center;">序</th>
-            <th style="width:70px; text-align:center;">組別</th>
-            <th style="width:65px; text-align:center;">${isField ? '出場順位' : '道次'}</th>
-            <th style="width:75px; text-align:center;">班級</th>
-            ${!isGrandRelay && eventKey !== 'relay4x200' ? '<th style="width:55px; text-align:center;">座號</th><th style="width:105px; text-align:left; padding-left:8px;">選手姓名</th>' : '<th colspan="2" style="text-align:left; padding-left:8px;">參賽代表隊</th>'}
+            <th style="width:34px; text-align:center;">序</th>
+            <th style="width:58px; text-align:center;">組別</th>
+            <th style="width:52px; text-align:center;">${isField ? '出場順位' : '道次'}</th>
+            <th style="width:62px; text-align:center;">班級</th>
+            ${!isGrandRelay && eventKey !== 'relay4x200' ? '<th style="width:42px; text-align:center;">座號</th><th style="width:80px; text-align:left; padding-left:6px;">選手姓名</th>' : '<th colspan="2" style="text-align:left; padding-left:6px;">參賽代表隊</th>'}
             
             ${isGrandRelay ? `
-              <th style="width:130px; text-align:center;">現場手計時間<br><span style="font-size:7.5pt; font-weight:normal;">( __分__秒__ )</span></th>
-              <th style="width:75px; text-align:center;">犯規次數<br><span style="font-size:7.5pt; font-weight:normal;">(+5秒/次)</span></th>
-              <th style="width:110px; text-align:center;">加罰後正式成績</th>
-              <th style="width:65px; text-align:center;">現場名次</th>
-            ` : ''}
-
-            ${isField ? `
-              <th style="width:80px; text-align:center;">第 1 次試跳/擲</th>
-              <th style="width:80px; text-align:center;">第 2 次試跳/擲</th>
-              <th style="width:80px; text-align:center;">第 3 次試跳/擲</th>
-              <th style="width:90px; text-align:center;">有效最佳成績</th>
-              <th style="width:65px; text-align:center;">現場名次</th>
-            ` : ''}
-
-            ${!isGrandRelay && !isField ? `
-              <th style="width:85px; text-align:center;">碼錶計時 (1)</th>
-              <th style="width:85px; text-align:center;">碼錶計時 (2)</th>
-              <th style="width:95px; text-align:center;">裁判採計成績</th>
-              <th style="width:65px; text-align:center;">晉級判定</th>
+              <th style="width:120px; text-align:center;">現場手計時間<br><span style="font-size:7.5pt; font-weight:normal;">( __分__秒__ )</span></th>
+              <th style="width:70px; text-align:center;">犯規次數<br><span style="font-size:7.5pt; font-weight:normal;">(+5秒/次)</span></th>
+              <th style="width:105px; text-align:center;">加罰後正式成績</th>
               <th style="width:60px; text-align:center;">現場名次</th>
             ` : ''}
 
-            <th style="text-align:left;">備註說明</th>
+            ${isField ? `
+              <th style="width:75px; text-align:center;">第 1 次試跳/擲</th>
+              <th style="width:75px; text-align:center;">第 2 次試跳/擲</th>
+              <th style="width:75px; text-align:center;">第 3 次試跳/擲</th>
+              <th style="width:85px; text-align:center;">有效最佳成績</th>
+              <th style="width:60px; text-align:center;">現場名次</th>
+            ` : ''}
+
+            ${!isGrandRelay && !isField ? `
+              <th style="width:72px; text-align:center;">碼錶計時 (1)</th>
+              <th style="width:72px; text-align:center;">碼錶計時 (2)</th>
+              <th style="width:80px; text-align:center;">裁判採計成績</th>
+              ${!isSprintFinals ? '<th style="width:58px; text-align:center;">晉級判定</th>' : ''}
+              <th style="width:55px; text-align:center;">現場名次</th>
+            ` : ''}
+
+            <th style="text-align:left; padding-left:6px;">備註說明</th>
           </tr>
         </thead>
         <tbody>
@@ -3912,7 +3933,7 @@ function renderAdminEditTable() {
               <th>比賽成績 (如：${examplePrompt})</th>
             ` : ''}
             ${isSprintTrack ? `
-              <th>${isSprintFinals ? '決賽成績 (秒.毫秒，如：12秒10)' : '比賽成績 (秒.毫秒，如：12秒35)'}</th>
+              <th>${isSprintFinals ? '決賽成績 (分/秒，如：12秒10 或 1分00秒98)' : '比賽成績 (分/秒，如：12秒35 或 1分00秒98)'}</th>
             ` : ''}
             ${isField ? `
               <th>第1次試跳/擲</th>
@@ -4008,7 +4029,9 @@ function renderAdminEditTable() {
           ${isSprintTrack ? `
             <td>
               <div class="time-input-group">
-                <input type="number" step="0.01" class="time-input-sec input-sprint-sec" style="width:88px;" value="${splitTime.sec || item.score || ''}" placeholder="秒.毫秒" oninput="recalcSprintRow(this)">
+                <input type="number" min="0" max="59" class="time-input-min input-sprint-min" value="${splitTime.min}" placeholder="分" oninput="recalcSprintRow(this)" style="width:52px;">
+                <span class="time-unit-label">分</span>
+                <input type="number" min="0" step="0.01" class="time-input-sec input-sprint-sec" value="${splitTime.sec}" placeholder="秒.毫秒" oninput="recalcSprintRow(this)" style="width:78px;">
                 <span class="time-unit-label">秒</span>
               </div>
               <span class="time-preview-badge sprint-preview" style="margin-left:0.5rem;">${totalSec ? formatSecondsToChinese(totalSec) : '--'}</span>
@@ -4095,11 +4118,15 @@ function recalcDistRow(inputEl) {
 
 function recalcSprintRow(inputEl) {
   const tr = inputEl.closest('tr');
-  const secVal = parseFloat(tr.querySelector('.input-sprint-sec').value);
+  const minInput = tr.querySelector('.input-sprint-min');
+  const secInput = tr.querySelector('.input-sprint-sec');
+  const minVal = minInput ? parseFloat(minInput.value) || 0 : 0;
+  const secVal = secInput ? parseFloat(secInput.value) : NaN;
   const preview = tr.querySelector('.sprint-preview');
 
-  if (!isNaN(secVal) && secVal > 0) {
-    preview.textContent = formatSecondsToChinese(secVal);
+  if (!isNaN(secVal) && secVal >= 0) {
+    const totalSec = minVal * 60 + secVal;
+    preview.textContent = formatSecondsToChinese(totalSec);
   } else {
     preview.textContent = '--';
   }
@@ -4186,10 +4213,13 @@ function syncAdminDomInputsToState() {
         target.score = '';
       }
     } else if (isSprintTrack) {
+      const minInput = tr.querySelector('.input-sprint-min');
       const secInput = tr.querySelector('.input-sprint-sec');
+      const minVal = minInput ? parseFloat(minInput.value) || 0 : 0;
       const secVal = secInput ? parseFloat(secInput.value) : NaN;
-      if (!isNaN(secVal) && secVal > 0) {
-        target.score = formatSecondsToChinese(secVal);
+      if (!isNaN(secVal) && secVal >= 0) {
+        const rawSec = minVal * 60 + secVal;
+        target.score = formatSecondsToChinese(rawSec);
       } else {
         target.score = '';
       }
