@@ -7,6 +7,79 @@
  */
 window.DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbzDWLgvkjLhHcVQBSa1AcMWPbu78C8Eqkhu7G92Mng7_UZEpZxjvqQfdWYvwqHO1YdL/exec';
 
+// ==========================================
+// 🛡️ 資安強化模組：SHA-256 密碼單向雜湊比對機制 (Zero-Plaintext Security)
+// 前端程式碼完全不儲存任何明文密碼，即使按 F12 檢視原始碼也僅能看到不可逆之 SHA-256 雜湊亂碼
+// ==========================================
+function internalSha256(ascii) {
+  function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+  var mathPow = Math.pow, maxWord = mathPow(2, 32), lengthProperty = 'length', i, j, result = '', words = [];
+  var asciiBitLength = ascii[lengthProperty] * 8, hash = [], k = [], primeCounter = 0, isComposite = {};
+  for (var candidate = 2; primeCounter < 64; candidate++) {
+    if (!isComposite[candidate]) {
+      for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+      hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+      k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+    }
+  }
+  ascii += '\x80';
+  while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+  for (i = 0; i < ascii[lengthProperty]; i++) {
+    j = ascii.charCodeAt(i);
+    words[i >> 2] |= j << ((3 - i) % 4) * 8;
+  }
+  words[words[lengthProperty]] = ((asciiBitLength / maxWord) | 0);
+  words[words[lengthProperty]] = (asciiBitLength) | 0;
+  for (j = 0; j < words[lengthProperty];) {
+    var w = words.slice(j, j += 16), oldHash = hash;
+    hash = hash.slice(0, 8);
+    for (i = 0; i < 64; i++) {
+      var i2 = i + j, w15 = w[i - 15], w2 = w[i - 2], a = hash[0], e = hash[4];
+      var temp1 = hash[7] + (rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25)) + ((e & hash[5]) ^ ((~e) & hash[6])) + k[i] + (w[i] = (i < 16) ? w[i] : (w[i - 16] + (rightRotate(w15, 7) ^ rightRotate(w15, 18) ^ (w15 >>> 3)) + w[i - 7] + (rightRotate(w2, 17) ^ rightRotate(w2, 19) ^ (w2 >>> 10))) | 0);
+      var temp2 = (rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22)) + ((a & hash[1]) ^ (a & hash[2]) ^ (hash[1] & hash[2]));
+      hash = [(temp1 + temp2) | 0].concat(hash);
+      hash[4] = (hash[4] + temp1) | 0;
+    }
+    for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+  }
+  for (i = 0; i < 8; i++) {
+    for (j = 3; j + 1; j--) {
+      var b = (hash[i] >> (j * 8)) & 255;
+      result += ((b < 16) ? 0 : '') + b.toString(16);
+    }
+  }
+  return result;
+}
+
+function computeSha256(text) {
+  if (text === null || text === undefined) return '';
+  const utf8 = unescape(encodeURIComponent(String(text)));
+  return internalSha256(utf8);
+}
+
+// 支援 Web Crypto API 異步雜湊（若環境支援）
+async function computeCryptoSubtleSha256(text) {
+  if (window.crypto && window.crypto.subtle && window.crypto.subtle.digest) {
+    try {
+      const msgUint8 = new TextEncoder().encode(String(text || ''));
+      const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgUint8);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {}
+  }
+  return computeSha256(text);
+}
+
+// 統一驗證授權/操作密碼（解鎖名單、清空成績、生成決賽）
+function verifyActionPassword(inputVal) {
+  if (!inputVal) return false;
+  const hash = computeSha256(String(inputVal).trim());
+  if (APP_STATE.actionAuthPasswordHashes && Array.isArray(APP_STATE.actionAuthPasswordHashes)) {
+    return APP_STATE.actionAuthPasswordHashes.includes(hash);
+  }
+  return (hash === APP_STATE.actionAuthPasswordHash);
+}
+
 // 應用程式全域狀態
 const APP_STATE = {
   data: null,
@@ -16,11 +89,33 @@ const APP_STATE = {
   isAdminUnlocked: false,
   currentUser: null,
   pendingTabAfterLogin: null,
-  isRosterEditUnlocked: false, // 選手名冊與分組分道進階編輯授權開關 (需密碼 tqjh888)
-  rosterEditPassword: 'tqjh888', // 專用修改授權密碼
+  isRosterEditUnlocked: false, // 選手名冊與分組分道進階編輯授權開關
+  // 進階操作授權密碼之 SHA-256 雜湊亂碼（不可逆單向雜湊，支援原授權密碼與新密碼）
+  actionAuthPasswordHashes: [
+    '1110fc46374755a5db45406fe85a34ba5a4951340c7bd54f309675a915d1a865',
+    '79894b92b85bb7b081d981da5b141d54a6d80409dff48a69660523c599a221d6'
+  ],
+  actionAuthPasswordHash: '1110fc46374755a5db45406fe85a34ba5a4951340c7bd54f309675a915d1a865',
+  // 管理者帳號清單（密碼以 SHA-256 雜湊亂碼儲存，F12 無法檢視真實密碼）
   adminAccounts: [
-    { username: 'tqjh888', password: 'tqjh888', name: '體育組管理員' },
-    { username: 'jenny', password: '123456789', name: 'Jenny 管理員' }
+    {
+      usernames: ['tqjh888', 'tqjh', 'admin'],
+      passwordHashes: [
+        '1110fc46374755a5db45406fe85a34ba5a4951340c7bd54f309675a915d1a865',
+        '79894b92b85bb7b081d981da5b141d54a6d80409dff48a69660523c599a221d6'
+      ],
+      passwordHash: '1110fc46374755a5db45406fe85a34ba5a4951340c7bd54f309675a915d1a865',
+      name: '體育組管理員'
+    },
+    {
+      usernames: ['jenny'],
+      passwordHashes: [
+        '15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225',
+        'df5307721552cb3c0a923ef246be3b63bf81566a3fdebc372d6f5648649f61e0'
+      ],
+      passwordHash: '15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225',
+      name: 'Jenny 管理員'
+    }
   ],
   projectorMode: false,
   
@@ -880,6 +975,10 @@ function calculateEventWithMultiplePERule(athletes, isHigherBetter = true) {
 
 const calculateUnifiedRankings = calculateEventWithMultiplePERule;
 const applySportsClassTieRanking = calculateEventWithMultiplePERule;
+if (typeof window !== 'undefined') {
+  window.calculateUnifiedRankings = calculateUnifiedRankings;
+  window.calculateEventWithMultiplePERule = calculateEventWithMultiplePERule;
+}
 
 /**
  * 演算法 1: 大隊接力並列排序演算法
@@ -3630,7 +3729,7 @@ function verifyAdminLogin() {
   const pwdInput = document.getElementById('admin-password-input');
   if (!uInput || !pwdInput) return;
 
-  const uVal = uInput.value.trim();
+  const uVal = uInput.value.trim().toLowerCase();
   const pVal = pwdInput.value.trim();
 
   if (!uVal || !pVal) {
@@ -3638,16 +3737,20 @@ function verifyAdminLogin() {
     return;
   }
 
-  // 驗證二組管理者帳密 (完全不顯示提醒文字)
+  // 🛡️ 透過 SHA-256 密碼單向雜湊比對（程式碼絕不儲存明文密碼，F12 看不到真實密碼）
+  const pHash = computeSha256(pVal);
   const matched = APP_STATE.adminAccounts.find(
-    acc => acc.username.toLowerCase() === uVal.toLowerCase() && acc.password === pVal
+    acc => acc.usernames.includes(uVal) && (
+      (acc.passwordHashes && acc.passwordHashes.includes(pHash)) ||
+      acc.passwordHash === pHash
+    )
   );
 
   if (matched) {
     APP_STATE.isAdminUnlocked = true;
-    APP_STATE.currentUser = matched;
+    APP_STATE.currentUser = { ...matched, username: uVal };
     try {
-      sessionStorage.setItem('tqjh_admin_auth', JSON.stringify({ username: matched.username, name: matched.name }));
+      sessionStorage.setItem('tqjh_admin_auth', JSON.stringify({ username: uVal, name: matched.name }));
     } catch (e) {}
 
     closeAdminAuthModal();
@@ -3728,10 +3831,10 @@ function initAdminAuth() {
     const saved = sessionStorage.getItem('tqjh_admin_auth');
     if (saved) {
       const parsed = JSON.parse(saved);
-      const matched = APP_STATE.adminAccounts.find(a => a.username.toLowerCase() === parsed.username.toLowerCase());
+      const matched = APP_STATE.adminAccounts.find(a => a.usernames.includes(parsed.username.toLowerCase()));
       if (matched) {
         APP_STATE.isAdminUnlocked = true;
-        APP_STATE.currentUser = matched;
+        APP_STATE.currentUser = { ...matched, username: parsed.username };
       }
     }
   } catch (e) {}
@@ -3850,14 +3953,14 @@ function renderAdminEditTable() {
             🔓 名單與道次：已授權解鎖 (點此重新鎖定)
           </button>
         ` : `
-          <button type="button" class="btn btn-sm" onclick="promptUnlockRoster()" style="background:#fffbeb; color:#b45309; border:1px solid #f59e0b; font-size:0.8rem; padding:0.25rem 0.6rem; font-weight:800; border-radius:6px; cursor:pointer;" title="若需修改姓名、座號、班級或道次，請輸入密碼 tqjh888 解鎖">
+          <button type="button" class="btn btn-sm" onclick="promptUnlockRoster()" style="background:#fffbeb; color:#b45309; border:1px solid #f59e0b; font-size:0.8rem; padding:0.25rem 0.6rem; font-weight:800; border-radius:6px; cursor:pointer;" title="若需修改姓名、座號、班級或道次，請點此輸入授權密碼解鎖">
             🔒 名單與道次：已鎖定保護 (點此輸入密碼解鎖)
           </button>
         `}
       </div>
       <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
         ${isSprintPrelim ? `
-          <button type="button" class="btn btn-sm btn-primary" onclick="triggerGenerateSprintFinals(APP_STATE.adminEdit.event, APP_STATE.adminEdit.grade, APP_STATE.adminEdit.gender)" style="background:linear-gradient(135deg, #f59e0b, #d97706); border:none; font-weight:800; box-shadow:0 2px 4px rgba(245,158,11,0.25);" title="依目前預賽前 12 名成績自動生成決賽分組與道次（需輸入密碼 tqjh888）">
+          <button type="button" class="btn btn-sm btn-primary" onclick="triggerGenerateSprintFinals(APP_STATE.adminEdit.event, APP_STATE.adminEdit.grade, APP_STATE.adminEdit.gender)" style="background:linear-gradient(135deg, #f59e0b, #d97706); border:none; font-weight:800; box-shadow:0 2px 4px rgba(245,158,11,0.25);" title="依目前預賽前 12 名成績自動生成決賽分組與道次（需輸入管理者授權密碼）">
             ⚡ 一鍵生成決賽名單與道次
           </button>
           <button type="button" class="btn btn-secondary btn-sm" onclick="sortAdminRosterByHeatAndLane()" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:800;" title="將選手先依組別再依道次排序">
@@ -3868,7 +3971,7 @@ function renderAdminEditTable() {
           </button>
         ` : ''}
         ${isSprintFinals ? `
-          <button type="button" class="btn btn-sm btn-primary" onclick="triggerGenerateSprintFinals('${event.replace('_finals', '')}', APP_STATE.adminEdit.grade, APP_STATE.adminEdit.gender)" style="background:linear-gradient(135deg, #f59e0b, #d97706); border:none; font-weight:800; box-shadow:0 2px 4px rgba(245,158,11,0.25);" title="重新依預賽前 12 名成績生成決賽分組與道次（需輸入密碼 tqjh888）">
+          <button type="button" class="btn btn-sm btn-primary" onclick="triggerGenerateSprintFinals('${event.replace('_finals', '')}', APP_STATE.adminEdit.grade, APP_STATE.adminEdit.gender)" style="background:linear-gradient(135deg, #f59e0b, #d97706); border:none; font-weight:800; box-shadow:0 2px 4px rgba(245,158,11,0.25);" title="重新依預賽前 12 名成績生成決賽分組與道次（需輸入管理者授權密碼）">
             ⚡ 重新生成決賽名單與道次
           </button>
           <button type="button" class="btn btn-secondary btn-sm" onclick="sortAdminRosterByHeatAndLane()" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-weight:800;" title="依決賽組別（第1組、第2組）與道次（1~6道）排序">
@@ -3904,7 +4007,7 @@ function renderAdminEditTable() {
         <button type="button" class="btn btn-sm btn-primary" onclick="openAddAthleteModal()" style="background:#0284c7; font-weight:800; box-shadow:0 2px 4px rgba(2,132,199,0.28);" title="新增一名參賽選手或大隊接力出賽班級">
           ➕ 新增參賽選手 / 班級
         </button>
-        <button type="button" class="btn btn-sm" onclick="clearCurrentEventScores()" style="background:#fff1f2; color:#be123c; border:1px solid #fecdd3; font-weight:800;" title="清空當前選定項目的比賽成績紀錄（選手名冊與分組道次完整保留，需密碼 tqjh888）">
+        <button type="button" class="btn btn-sm" onclick="clearCurrentEventScores()" style="background:#fff1f2; color:#be123c; border:1px solid #fecdd3; font-weight:800;" title="清空當前選定項目的比賽成績紀錄（選手名冊與分組道次完整保留，需管理者授權密碼）">
           🧹 清空此項目成績
         </button>
       </div>
@@ -3968,26 +4071,26 @@ function renderAdminEditTable() {
         <tr data-id="${item.id}">
           <td style="text-align:center;">${idx + 1}</td>
           <td style="text-align:center;">
-            <input type="text" class="form-control input-row-class" value="${item.classId}" style="width:60px; padding:0.25rem 0.2rem; font-size:0.88rem; font-weight:800; text-align:center; display:inline-block; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入密碼 tqjh888 解鎖修改班級"' : 'title="修改班級 (如: 701, 716)"'}>
+            <input type="text" class="form-control input-row-class" value="${item.classId}" style="width:60px; padding:0.25rem 0.2rem; font-size:0.88rem; font-weight:800; text-align:center; display:inline-block; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入授權密碼解鎖修改班級"' : 'title="修改班級 (如: 701, 716)"'}>
             ${item.isSportsClass ? '<div class="badge badge-sports" style="font-size:0.68rem; margin-top:2px;">體育班</div>' : ''}
           </td>
           ${!isGrandRelay && !is4x200 ? `
             <td style="text-align:center;">
-              <input type="text" class="form-control input-row-bib" value="${item.bib || ''}" placeholder="座號" style="width:50px; padding:0.25rem 0.2rem; font-size:0.85rem; text-align:center; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入密碼 tqjh888 解鎖修改座號"' : 'title="修改座號/號碼布"'}>
+              <input type="text" class="form-control input-row-bib" value="${item.bib || ''}" placeholder="座號" style="width:50px; padding:0.25rem 0.2rem; font-size:0.85rem; text-align:center; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入授權密碼解鎖修改座號"' : 'title="修改座號/號碼布"'}>
             </td>
             <td>
-              <input type="text" class="form-control input-row-name" value="${item.name || ''}" placeholder="選手姓名" style="width:95px; padding:0.25rem 0.4rem; font-size:0.9rem; font-weight:700; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入密碼 tqjh888 解鎖修改選手姓名"' : 'title="修改選手姓名"'}>
+              <input type="text" class="form-control input-row-name" value="${item.name || ''}" placeholder="選手姓名" style="width:95px; padding:0.25rem 0.4rem; font-size:0.9rem; font-weight:700; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入授權密碼解鎖修改選手姓名"' : 'title="修改選手姓名"'}>
             </td>
           ` : `
             <td>
-              <input type="text" class="form-control input-row-name" value="${item.name || (isGrandRelay ? `${item.classId} 班大隊接力隊` : `${item.classId} 班接力隊`)}" placeholder="隊伍名稱" style="width:125px; padding:0.25rem 0.4rem; font-size:0.88rem; font-weight:700; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入密碼 tqjh888 解鎖修改參賽代表隊"' : 'title="修改參賽隊伍名稱"'}>
+              <input type="text" class="form-control input-row-name" value="${item.name || (isGrandRelay ? `${item.classId} 班大隊接力隊` : `${item.classId} 班接力隊`)}" placeholder="隊伍名稱" style="width:125px; padding:0.25rem 0.4rem; font-size:0.88rem; font-weight:700; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入授權密碼解鎖修改參賽代表隊"' : 'title="修改參賽隊伍名稱"'}>
             </td>
           `}
           <td style="text-align:center;">
-            <input type="text" class="form-control input-row-heat" value="${item.heat || item.flight || ''}" placeholder="如: 第 1 組" style="width:85px; padding:0.25rem 0.35rem; font-size:0.84rem; text-align:center; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入密碼 tqjh888 解鎖修改出賽組別"' : 'title="修改出賽組別 (如: 第 1 組)"'}>
+            <input type="text" class="form-control input-row-heat" value="${item.heat || item.flight || ''}" placeholder="如: 第 1 組" style="width:85px; padding:0.25rem 0.35rem; font-size:0.84rem; text-align:center; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入授權密碼解鎖修改出賽組別"' : 'title="修改出賽組別 (如: 第 1 組)"'}>
           </td>
           <td style="text-align:center;">
-            <input type="text" class="form-control input-row-lane" value="${item.lane ? item.lane : (item.order ? item.order : '')}" placeholder="如: 3" style="width:50px; padding:0.25rem 0.2rem; font-size:0.86rem; text-align:center; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入密碼 tqjh888 解鎖修改道次/出場順序"' : 'title="修改道次或出場順序 (如: 3 或 第 3 位)"'}>
+            <input type="text" class="form-control input-row-lane" value="${item.lane ? item.lane : (item.order ? item.order : '')}" placeholder="如: 3" style="width:50px; padding:0.25rem 0.2rem; font-size:0.86rem; text-align:center; ${!isRosterUnlocked ? lockedStyle : ''}" ${!isRosterUnlocked ? 'readonly onclick="promptUnlockRoster()" title="🔒 點此輸入授權密碼解鎖修改道次/出場順序"' : 'title="修改道次或出場順序 (如: 3 或 第 3 位)"'}>
           </td>
           ${isSprintFinals ? `
             <td style="text-align:center; font-size:0.86rem; color:#0369a1; font-weight:700;">
@@ -4047,7 +4150,7 @@ function renderAdminEditTable() {
 
           <td><input type="text" class="form-control input-row-remarks" style="padding:0.35rem 0.5rem; font-size:0.85rem; min-width:80px;" value="${item.remarks || ''}"></td>
           <td style="text-align:center; white-space:nowrap;">
-            <button type="button" class="btn btn-secondary btn-sm" onclick="openEditAthleteModal('${item.id}', '${event}')" title="${isRosterUnlocked ? '修改選手名冊與道次' : '🔒 需先輸入密碼 tqjh888 確認授權方可修改選手名冊與道次'}" style="padding:0.25rem 0.45rem; font-size:0.8rem;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="openEditAthleteModal('${item.id}', '${event}')" title="${isRosterUnlocked ? '修改選手名冊與道次' : '🔒 需先輸入授權密碼確認授權方可修改選手名冊與道次'}" style="padding:0.25rem 0.45rem; font-size:0.8rem;">
               ${isRosterUnlocked ? '✏️' : '🔒'}
             </button>
             <button type="button" class="btn btn-sm" onclick="deleteAthleteOrClass('${item.id}', '${event}')" title="刪除此選手或班級出賽資格" style="padding:0.25rem 0.45rem; font-size:0.8rem; background:#fff1f2; color:#be123c; border:1px solid #fecdd3; margin-left:3px; font-weight:800;">
@@ -4448,10 +4551,10 @@ function triggerGenerateSprintFinals(prelimKey, grade, gender) {
     return;
   }
 
-  // 1. 安全確認密碼驗證 (tqjh888)
-  const pwd = prompt(`🔐 【短跑決賽名單生成安全認證】\n\n即將為【${grade} ${gender} ${getEventDisplayName(prelimKey)}】由預賽成績排名前 12 名選手自動編配決賽分組與標準黃金跑道！\n\n請輸入確認密碼：`);
+  // 1. 安全確認密碼驗證
+  const pwd = prompt(`🔐 【短跑決賽名單生成安全認證】\n\n即將為【${grade} ${gender} ${getEventDisplayName(prelimKey)}】由預賽成績排名前 12 名選手自動編配決賽分組與標準黃金跑道！\n\n請輸入管理者確認密碼：`);
   if (pwd === null) return;
-  if (pwd.trim() !== 'tqjh888') {
+  if (!verifyActionPassword(pwd)) {
     alert('❌ 密碼錯誤！無法生成決賽名單。');
     return;
   }
@@ -4654,11 +4757,11 @@ function saveAdminEdits() {
   }
 }
 
-// 點選各項運動項目後的專屬清空功能 (需密碼 tqjh888)
+// 點選各項運動項目後的專屬清空功能
 function clearCurrentEventScores() {
   const pwd = prompt('🔒 安全防護確認：\n\n您即將清空當前選定項目的比賽成績紀錄！\n選手名冊與分組道次將完整保留。\n\n請輸入管理者確認密碼：');
   if (pwd === null) return;
-  if (pwd.trim() !== 'tqjh888') {
+  if (!verifyActionPassword(pwd)) {
     alert('❌ 密碼錯誤！無法清空此項目成績。');
     return;
   }
@@ -4718,7 +4821,7 @@ function clearCurrentEventScores() {
 }
 
 // ==========================================
-// 選手名冊與分組分道安全密碼驗證模組 (密碼: tqjh888)
+// 選手名冊與分組分道安全密碼驗證模組
 // ==========================================
 let ROSTER_AUTH_CALLBACK = null;
 
@@ -4750,7 +4853,7 @@ function verifyRosterAuthPassword() {
   const errMsg = document.getElementById('roster-auth-err-msg');
   const val = pwdInput ? pwdInput.value.trim() : '';
 
-  if (val === APP_STATE.rosterEditPassword || val === 'tqjh888') {
+  if (verifyActionPassword(val)) {
     APP_STATE.isRosterEditUnlocked = true;
     closeRosterAuthModal();
     showToast('🔓 選手名冊與分組分道修改權限已成功解鎖！');
@@ -4762,13 +4865,14 @@ function verifyRosterAuthPassword() {
     }
   } else {
     if (errMsg) {
-      errMsg.textContent = '❌ 授權密碼錯誤！請輸入密碼 (tqjh888)。';
+      errMsg.textContent = '❌ 授權密碼錯誤！請重新輸入。';
       errMsg.style.display = 'block';
     }
     if (pwdInput) {
       pwdInput.value = '';
       pwdInput.focus();
     }
+    showToast('❌ 授權密碼錯誤', 'error');
   }
 }
 
@@ -5402,11 +5506,11 @@ function loadRealisticSampleScores() {
   showToast('⚡ 示範成績已成功載入（格式如：4分15秒34）！可前往【即時榜單】查看。');
 }
 
-// 清空全站所有競賽項目已登記的比賽成績（選手名冊與分組分道完整保留，需密碼 tqjh888）
+// 清空全站所有競賽項目已登記的比賽成績（選手名冊與分組分道完整保留）
 function clearAllMatchScores() {
   const pwd = prompt('🔒 安全防護確認：\n\n您即將清空【全校所有競賽項目】已登錄的比賽成績紀錄！\n選手名冊與分組道次將完整保留。\n\n請輸入管理者密碼確認：');
   if (pwd === null) return;
-  if (pwd.trim() !== 'tqjh888') {
+  if (!verifyActionPassword(pwd)) {
     alert('❌ 密碼錯誤！無法清空全校成績。');
     return;
   }
