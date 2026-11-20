@@ -224,7 +224,16 @@ function mergeEventDatasets(baseData, incomingData) {
     const baseList = result.events[evKey];
 
     incomingList.forEach(inItem => {
-      let match = baseList.find(x => x.id === inItem.id || (x.classId === inItem.classId && x.name === inItem.name && x.heat === inItem.heat));
+      let match = baseList.find(x => x.id === inItem.id);
+      if (!match) {
+        match = baseList.find(x => 
+          x.classId === inItem.classId && 
+          x.grade === inItem.grade && 
+          x.gender === inItem.gender && 
+          x.heat === inItem.heat && 
+          (inItem.name ? x.name === inItem.name : true)
+        );
+      }
       if (!match) {
         // 新增的選手或班級直接加入
         baseList.push(JSON.parse(JSON.stringify(inItem)));
@@ -3969,6 +3978,9 @@ function initAdminView() {
   if (eventSelect) {
     eventSelect.value = APP_STATE.adminEdit.event;
     eventSelect.addEventListener('change', () => {
+      // 🛡️ 切換前先將當前畫面上已輸入的成績暫存入狀態與儲存，防止換項目造成已打成績遺失！
+      syncAdminDomInputsToState();
+      saveLocalData();
       APP_STATE.adminEdit.event = eventSelect.value;
       if (APP_STATE.adminEdit.event === 'grandRelay') {
         APP_STATE.adminEdit.gender = '混組';
@@ -3983,6 +3995,9 @@ function initAdminView() {
   if (gradeSelect) {
     gradeSelect.value = APP_STATE.adminEdit.grade;
     gradeSelect.addEventListener('change', () => {
+      // 🛡️ 切換年級前先暫存當前年級已打好的成績，防止換年級時成績被未保存衝掉！
+      syncAdminDomInputsToState();
+      saveLocalData();
       APP_STATE.adminEdit.grade = gradeSelect.value;
       renderAdminEditTable();
     });
@@ -3990,6 +4005,9 @@ function initAdminView() {
   if (genderSelect) {
     genderSelect.value = APP_STATE.adminEdit.gender;
     genderSelect.addEventListener('change', () => {
+      // 🛡️ 切換性別前先暫存當前組別已打好的成績
+      syncAdminDomInputsToState();
+      saveLocalData();
       APP_STATE.adminEdit.gender = genderSelect.value;
       renderAdminEditTable();
     });
@@ -6796,7 +6814,15 @@ function recoverLocalScores() {
       if (Array.isArray(candList) && Array.isArray(currentList)) {
         candList.forEach(candItem => {
           if (hasValidAthleteScore(candItem)) {
-            const target = currentList.find(x => x.id === candItem.id || (x.classId === candItem.classId && x.name === candItem.name));
+            let target = currentList.find(x => x.id === candItem.id);
+            if (!target) {
+              target = currentList.find(x => 
+                x.classId === candItem.classId && 
+                x.grade === candItem.grade && 
+                x.gender === candItem.gender &&
+                (candItem.name ? x.name === candItem.name : true)
+              );
+            }
             if (target && !hasValidAthleteScore(target)) {
               let added = false;
               if (candItem.att1) { target.att1 = candItem.att1; added = true; }
