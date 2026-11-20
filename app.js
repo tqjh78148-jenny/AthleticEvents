@@ -1012,7 +1012,7 @@ function computeGrandRelayRanks(entries) {
   list.forEach(item => {
     item.classNo = item.classNo || item.classId;
     item.isSportsClass = String(item.classNo || '').endsWith('16');
-    let raw = parseChineseTimeToSeconds(item.rawScore);
+    let raw = parseChineseTimeToSeconds(item.rawScore) || parseChineseTimeToSeconds(item.score);
     const fouls = parseInt(item.foulCount) || 0;
     if (raw !== null && !isNaN(raw) && raw > 0) {
       item.rawSeconds = raw;
