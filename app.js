@@ -96,24 +96,28 @@ const APP_STATE = {
     '79894b92b85bb7b081d981da5b141d54a6d80409dff48a69660523c599a221d6'
   ],
   actionAuthPasswordHash: '1110fc46374755a5db45406fe85a34ba5a4951340c7bd54f309675a915d1a865',
-  // 管理者帳號清單（密碼以 SHA-256 雜湊亂碼儲存，F12 無法檢視真實密碼）
+  // 管理者帳號清單（帳號與密碼皆以 SHA-256 雜湊亂碼儲存，F12 完全無法檢視真實帳號與真實密碼）
   adminAccounts: [
     {
-      usernames: ['tqjh888', 'tqjh', 'admin'],
+      usernameHashes: [
+        '1110fc46374755a5db45406fe85a34ba5a4951340c7bd54f309675a915d1a865',
+        '6f38be1570cb93e1d0cb3fc69c2d43a997e05ff58f3e73b5e82161998dffcc1a',
+        '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918'
+      ],
       passwordHashes: [
         '1110fc46374755a5db45406fe85a34ba5a4951340c7bd54f309675a915d1a865',
         '79894b92b85bb7b081d981da5b141d54a6d80409dff48a69660523c599a221d6'
       ],
-      passwordHash: '1110fc46374755a5db45406fe85a34ba5a4951340c7bd54f309675a915d1a865',
       name: '體育組管理員'
     },
     {
-      usernames: ['jenny'],
+      usernameHashes: [
+        '239127e09157cbafb6212123b102aa1103241946b3684c232c44b8367c3a4d47'
+      ],
       passwordHashes: [
         '15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225',
         'df5307721552cb3c0a923ef246be3b63bf81566a3fdebc372d6f5648649f61e0'
       ],
-      passwordHash: '15e2b0d3c33891ebb0f1ef609ec419420c20e320ce94c65fbc8c3312448eb225',
       name: 'Jenny 管理員'
     }
   ],
@@ -719,7 +723,8 @@ function formatSecondsToChinese(totalSec) {
  * 將字串（支援 4分15秒34、4:15.34、255.34）解析為總秒數
  */
 function parseChineseTimeToSeconds(input) {
-  if (!input) return null;
+  if (input === null || input === undefined) return null;
+  if (typeof input === 'number') return (!isNaN(input) && input > 0) ? input : null;
   input = String(input).trim();
   if (!input || input === '--') return null;
 
@@ -3737,10 +3742,14 @@ function verifyAdminLogin() {
     return;
   }
 
-  // 🛡️ 透過 SHA-256 密碼單向雜湊比對（程式碼絕不儲存明文密碼，F12 看不到真實密碼）
+  // 🛡️ 透過 SHA-256 帳號與密碼單向雜湊比對（程式碼絕不儲存明文帳號與密碼，F12 完全看不到）
+  const uHash = computeSha256(uVal);
   const pHash = computeSha256(pVal);
   const matched = APP_STATE.adminAccounts.find(
-    acc => acc.usernames.includes(uVal) && (
+    acc => (
+      (acc.usernameHashes && acc.usernameHashes.includes(uHash)) ||
+      (acc.usernames && acc.usernames.includes(uVal))
+    ) && (
       (acc.passwordHashes && acc.passwordHashes.includes(pHash)) ||
       acc.passwordHash === pHash
     )
@@ -3831,7 +3840,12 @@ function initAdminAuth() {
     const saved = sessionStorage.getItem('tqjh_admin_auth');
     if (saved) {
       const parsed = JSON.parse(saved);
-      const matched = APP_STATE.adminAccounts.find(a => a.usernames.includes(parsed.username.toLowerCase()));
+      const uVal = (parsed.username || '').toLowerCase();
+      const uHash = computeSha256(uVal);
+      const matched = APP_STATE.adminAccounts.find(a => 
+        (a.usernameHashes && a.usernameHashes.includes(uHash)) ||
+        (a.usernames && a.usernames.includes(uVal))
+      );
       if (matched) {
         APP_STATE.isAdminUnlocked = true;
         APP_STATE.currentUser = { ...matched, username: parsed.username };
@@ -3840,6 +3854,111 @@ function initAdminAuth() {
   } catch (e) {}
 
   updateAdminUIState();
+}
+
+// ⌨️ 後台快速鍵盤導航：按 Enter 或 Tab 自動在「分」與「秒」以及「下一隊/下一位選手」間平滑跳轉，絕不跳到頂部按鈕或縮鍵盤
+function handleAdminTableKeydown(e) {
+  if (e.key === 'Enter' || e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    const target = e.target;
+    if (!target || !target.classList) return;
+
+    const isSprintSec = target.classList.contains('input-sprint-sec');
+    const isSprintMin = target.classList.contains('input-sprint-min');
+    const isDistSec = target.classList.contains('input-dist-sec');
+    const isDistMin = target.classList.contains('input-dist-min');
+    const isRelaySec = target.classList.contains('input-relay-sec');
+    const isRelayMin = target.classList.contains('input-relay-min');
+    const isFieldAtt = target.classList.contains('field-att1') || target.classList.contains('field-att2') || target.classList.contains('field-att3');
+
+    if (isSprintSec || isSprintMin || isDistSec || isDistMin || isRelaySec || isRelayMin || isFieldAtt) {
+      const tr = target.closest('tr');
+      if (!tr) return;
+
+      // 1. Enter 或 Tab 正向導航（分 ➔ 秒 ➔ 下一列分）
+      if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+        e.preventDefault(); // 嚴格防止行動瀏覽器預設行為關閉虛擬鍵盤、提交表單或跳出表格至頂部按鈕
+
+        if (isRelayMin) {
+          const sec = tr.querySelector('.input-relay-sec');
+          if (sec) { sec.focus(); if (sec.select) sec.select(); return; }
+        } else if (isDistMin) {
+          const sec = tr.querySelector('.input-dist-sec');
+          if (sec) { sec.focus(); if (sec.select) sec.select(); return; }
+        } else if (isSprintMin) {
+          const sec = tr.querySelector('.input-sprint-sec');
+          if (sec) { sec.focus(); if (sec.select) sec.select(); return; }
+        }
+
+        // 當前在「秒」或「田賽試跳試擲」欄位時，Enter / Tab 跳轉至下一列成績輸入框
+        const nextTr = tr.nextElementSibling;
+        if (nextTr) {
+          let nextTarget = null;
+          if (isRelaySec) nextTarget = nextTr.querySelector('.input-relay-min') || nextTr.querySelector('.input-relay-sec');
+          else if (isDistSec) nextTarget = nextTr.querySelector('.input-dist-min') || nextTr.querySelector('.input-dist-sec');
+          else if (isSprintSec) nextTarget = nextTr.querySelector('.input-sprint-sec') || nextTr.querySelector('.input-sprint-min');
+          else if (target.classList.contains('field-att1')) nextTarget = tr.querySelector('.field-att2') || nextTr.querySelector('.field-att1');
+          else if (target.classList.contains('field-att2')) nextTarget = tr.querySelector('.field-att3') || nextTr.querySelector('.field-att2');
+          else if (target.classList.contains('field-att3')) nextTarget = nextTr.querySelector('.field-att1');
+
+          if (nextTarget) {
+            nextTarget.focus();
+            if (nextTarget.select) nextTarget.select();
+          }
+        }
+        return;
+      }
+
+      // 2. Shift + Tab 反向導航（秒 ➔ 分）
+      if (e.key === 'Tab' && e.shiftKey) {
+        if (isRelaySec) {
+          const min = tr.querySelector('.input-relay-min');
+          if (min) { e.preventDefault(); min.focus(); if (min.select) min.select(); return; }
+        } else if (isDistSec) {
+          const min = tr.querySelector('.input-dist-min');
+          if (min) { e.preventDefault(); min.focus(); if (min.select) min.select(); return; }
+        } else if (isSprintSec) {
+          const min = tr.querySelector('.input-sprint-min');
+          if (min) { e.preventDefault(); min.focus(); if (min.select) min.select(); return; }
+        }
+      }
+
+      // 3. 上下方向鍵導航 (ArrowDown / ArrowUp)
+      let selector = '';
+      if (isSprintSec) selector = '.input-sprint-sec';
+      else if (isSprintMin) selector = '.input-sprint-min';
+      else if (isDistSec) selector = '.input-dist-sec';
+      else if (isDistMin) selector = '.input-dist-min';
+      else if (isRelaySec) selector = '.input-relay-sec';
+      else if (isRelayMin) selector = '.input-relay-min';
+      else if (isFieldAtt) {
+        if (target.classList.contains('field-att1')) selector = '.field-att1';
+        else if (target.classList.contains('field-att2')) selector = '.field-att2';
+        else selector = '.field-att3';
+      }
+
+      if (e.key === 'ArrowDown') {
+        const nextTr = tr.nextElementSibling;
+        if (nextTr) {
+          const nextInput = nextTr.querySelector(selector);
+          if (nextInput) {
+            e.preventDefault();
+            nextInput.focus();
+            if (nextInput.select) nextInput.select();
+          }
+        }
+      } else if (e.key === 'ArrowUp') {
+        const prevTr = tr.previousElementSibling;
+        if (prevTr) {
+          const prevInput = prevTr.querySelector(selector);
+          if (prevInput) {
+            e.preventDefault();
+            prevInput.focus();
+            if (prevInput.select) prevInput.select();
+          }
+        }
+      }
+    }
+  }
 }
 
 function initAdminView() {
@@ -3874,6 +3993,14 @@ function initAdminView() {
       APP_STATE.adminEdit.gender = genderSelect.value;
       renderAdminEditTable();
     });
+  }
+
+  const adminContainer = document.getElementById('admin-edit-table-container');
+  if (adminContainer && (!adminContainer.dataset || !adminContainer.dataset.keyNavBound)) {
+    if (adminContainer.dataset) adminContainer.dataset.keyNavBound = 'true';
+    if (typeof adminContainer.addEventListener === 'function') {
+      adminContainer.addEventListener('keydown', handleAdminTableKeydown);
+    }
   }
 }
 
@@ -4101,9 +4228,9 @@ function renderAdminEditTable() {
           ${isGrandRelay ? `
             <td>
               <div class="time-input-group">
-                <input type="number" min="0" max="59" class="time-input-min input-relay-min" value="${splitTime.min}" placeholder="分" oninput="recalcRelayRow(this)">
+                <input type="text" inputmode="numeric" pattern="[0-9]*" class="time-input-min input-relay-min" value="${splitTime.min}" placeholder="分" oninput="recalcRelayRow(this)" autocomplete="off" style="width:50px; text-align:center;">
                 <span class="time-unit-label">分</span>
-                <input type="number" min="0" max="59.99" step="0.01" class="time-input-sec input-relay-sec" value="${splitTime.sec}" placeholder="秒.毫秒" oninput="recalcRelayRow(this)">
+                <input type="text" inputmode="decimal" class="time-input-sec input-relay-sec" value="${splitTime.sec}" placeholder="秒.毫秒" oninput="recalcRelayRow(this)" autocomplete="off" style="width:84px; text-align:center; font-weight:700;">
                 <span class="time-unit-label">秒</span>
               </div>
             </td>
@@ -4120,9 +4247,9 @@ function renderAdminEditTable() {
           ${isDistanceTrack ? `
             <td>
               <div class="time-input-group">
-                <input type="number" min="0" max="59" class="time-input-min input-dist-min" value="${splitTime.min}" placeholder="分" oninput="recalcDistRow(this)">
+                <input type="text" inputmode="numeric" pattern="[0-9]*" class="time-input-min input-dist-min" value="${splitTime.min}" placeholder="分" oninput="recalcDistRow(this)" autocomplete="off" style="width:50px; text-align:center;">
                 <span class="time-unit-label">分</span>
-                <input type="number" min="0" max="59.99" step="0.01" class="time-input-sec input-dist-sec" value="${splitTime.sec}" placeholder="秒.毫秒" oninput="recalcDistRow(this)">
+                <input type="text" inputmode="decimal" class="time-input-sec input-dist-sec" value="${splitTime.sec}" placeholder="秒.毫秒" oninput="recalcDistRow(this)" autocomplete="off" style="width:84px; text-align:center; font-weight:700;">
                 <span class="time-unit-label">秒</span>
               </div>
               <span class="time-preview-badge dist-preview" style="margin-left:0.5rem;">${formatSecondsToChinese(totalSec)}</span>
@@ -4132,9 +4259,9 @@ function renderAdminEditTable() {
           ${isSprintTrack ? `
             <td>
               <div class="time-input-group">
-                <input type="number" min="0" max="59" class="time-input-min input-sprint-min" value="${splitTime.min}" placeholder="分" oninput="recalcSprintRow(this)" style="width:52px;">
+                <input type="text" inputmode="numeric" pattern="[0-9]*" class="time-input-min input-sprint-min" value="${splitTime.min}" placeholder="分" oninput="recalcSprintRow(this)" autocomplete="off" style="width:50px; text-align:center;">
                 <span class="time-unit-label">分</span>
-                <input type="number" min="0" step="0.01" class="time-input-sec input-sprint-sec" value="${splitTime.sec}" placeholder="秒.毫秒" oninput="recalcSprintRow(this)" style="width:78px;">
+                <input type="text" inputmode="decimal" class="time-input-sec input-sprint-sec" value="${splitTime.sec}" placeholder="秒.毫秒" oninput="recalcSprintRow(this)" autocomplete="off" style="width:84px; text-align:center; font-weight:700;">
                 <span class="time-unit-label">秒</span>
               </div>
               <span class="time-preview-badge sprint-preview" style="margin-left:0.5rem;">${totalSec ? formatSecondsToChinese(totalSec) : '--'}</span>
@@ -4188,11 +4315,17 @@ function adjustFoul(btn, delta) {
 }
 
 function recalcRelayRow(inputEl) {
+  if (!inputEl) return;
   const tr = inputEl.closest('tr');
-  const minVal = parseFloat(tr.querySelector('.input-relay-min').value) || 0;
-  const secVal = parseFloat(tr.querySelector('.input-relay-sec').value);
-  const fouls = parseInt(tr.querySelector('.foul-val').textContent) || 0;
+  if (!tr) return;
+  const minInput = tr.querySelector('.input-relay-min');
+  const secInput = tr.querySelector('.input-relay-sec');
+  const minVal = minInput ? (parseFloat(minInput.value) || 0) : 0;
+  const secVal = secInput ? parseFloat(secInput.value) : NaN;
+  const foulEl = tr.querySelector('.foul-val');
+  const fouls = foulEl ? (parseInt(foulEl.textContent, 10) || 0) : 0;
   const finalEl = tr.querySelector('.relay-final-calc');
+  if (!finalEl) return;
 
   if (!isNaN(secVal) && secVal >= 0) {
     const rawTotal = minVal * 60 + secVal;
@@ -4206,10 +4339,15 @@ function recalcRelayRow(inputEl) {
 }
 
 function recalcDistRow(inputEl) {
+  if (!inputEl) return;
   const tr = inputEl.closest('tr');
-  const minVal = parseFloat(tr.querySelector('.input-dist-min').value) || 0;
-  const secVal = parseFloat(tr.querySelector('.input-dist-sec').value);
+  if (!tr) return;
+  const minInput = tr.querySelector('.input-dist-min');
+  const secInput = tr.querySelector('.input-dist-sec');
+  const minVal = minInput ? (parseFloat(minInput.value) || 0) : 0;
+  const secVal = secInput ? parseFloat(secInput.value) : NaN;
   const preview = tr.querySelector('.dist-preview');
+  if (!preview) return;
 
   if (!isNaN(secVal) && secVal >= 0) {
     const totalSec = minVal * 60 + secVal;
@@ -4220,12 +4358,15 @@ function recalcDistRow(inputEl) {
 }
 
 function recalcSprintRow(inputEl) {
+  if (!inputEl) return;
   const tr = inputEl.closest('tr');
+  if (!tr) return;
   const minInput = tr.querySelector('.input-sprint-min');
   const secInput = tr.querySelector('.input-sprint-sec');
   const minVal = minInput ? parseFloat(minInput.value) || 0 : 0;
   const secVal = secInput ? parseFloat(secInput.value) : NaN;
   const preview = tr.querySelector('.sprint-preview');
+  if (!preview) return;
 
   if (!isNaN(secVal) && secVal >= 0) {
     const totalSec = minVal * 60 + secVal;
@@ -4236,7 +4377,9 @@ function recalcSprintRow(inputEl) {
 }
 
 function recalcFieldRow(inputEl) {
+  if (!inputEl) return;
   const tr = inputEl.closest('tr');
+  if (!tr) return;
   const a1 = parseDistanceInput(tr.querySelector('.field-att1').value);
   const a2 = parseDistanceInput(tr.querySelector('.field-att2').value);
   const a3 = parseDistanceInput(tr.querySelector('.field-att3').value);
@@ -4296,14 +4439,20 @@ function syncAdminDomInputsToState() {
       const secInput = tr.querySelector('.input-relay-sec');
       const minVal = minInput ? parseFloat(minInput.value) || 0 : 0;
       const secVal = secInput ? parseFloat(secInput.value) : NaN;
+      const foulEl = tr.querySelector('.foul-val');
+      const fouls = foulEl ? parseInt(foulEl.textContent, 10) || 0 : 0;
+      target.foulCount = fouls;
       if (!isNaN(secVal) && secVal >= 0) {
         const rawSec = minVal * 60 + secVal;
         target.rawScore = formatSecondsToChinese(rawSec);
+        const finalSec = rawSec + fouls * 5;
+        target.score = formatSecondsToChinese(finalSec);
+        target.formattedFinal = target.score;
       } else {
         target.rawScore = '';
+        target.score = '';
+        target.formattedFinal = '';
       }
-      const foulEl = tr.querySelector('.foul-val');
-      target.foulCount = foulEl ? parseInt(foulEl.textContent) || 0 : 0;
     } else if (isDistanceTrack) {
       const minInput = tr.querySelector('.input-dist-min');
       const secInput = tr.querySelector('.input-dist-sec');
@@ -6451,8 +6600,13 @@ async function pullDataFromCloud(isManualForce = false) {
 
         if (json.lastUpdated !== APP_STATE.sync.lastSyncedTime || isManualForce) {
           APP_STATE.sync.lastSyncedTime = json.lastUpdated;
-          // 🛡️ 若管理員正在後台輸入成績，先暫存 DOM 輸入框數據避免被覆蓋
-          if (APP_STATE.currentTab === 'admin') {
+
+          // 🛡️ 檢查管理員是否正在後台表格中輸入（包含輸入框獲得焦點），防止破壞進行中的輸入！
+          const adminContainer = document.getElementById('admin-edit-table-container');
+          const isUserEditing = !!(document.activeElement && adminContainer && adminContainer.contains(document.activeElement));
+
+          // 🛡️ 唯有當前沒有正在鍵入時才暫存 DOM，正在鍵入時保留輸入中狀態，絕不提前抹消未完成小數字元
+          if (APP_STATE.currentTab === 'admin' && !isUserEditing) {
             syncAdminDomInputsToState();
           }
 
@@ -6462,14 +6616,6 @@ async function pullDataFromCloud(isManualForce = false) {
           APP_STATE.years[APP_STATE.currentYear || '115'] = APP_STATE.data;
           localStorage.setItem('TQ_MEET_DATA_115', JSON.stringify(APP_STATE.data));
 
-          // 若已登入管理員之本機持有雲端尚未收錄之有效成績或新生成決賽名單，自動將合併後的完整資料推送至雲端保護
-          const mergedScores = countTotalScoresInDataset(APP_STATE.data);
-          const hasNewFinalsRoster = ((APP_STATE.data.events && APP_STATE.data.events.e100m_finals ? APP_STATE.data.events.e100m_finals.length : 0) > (json.data.events && json.data.events.e100m_finals ? json.data.events.e100m_finals.length : 0)) ||
-            ((APP_STATE.data.events && APP_STATE.data.events.e200m_finals ? APP_STATE.data.events.e200m_finals.length : 0) > (json.data.events && json.data.events.e200m_finals ? json.data.events.e200m_finals.length : 0));
-          if ((mergedScores > cloudScores || hasNewFinalsRoster) && APP_STATE.isAdminUnlocked) {
-            pushDataToCloud();
-          }
-          
           // 🛡️ 初次進入網站且尚未點選特定項目時，自動切換至最新有成績之賽事，避免首頁留白讓人誤以為成績消失
           if (!sessionStorage.getItem('TQ_USER_VIEW')) {
             const latest = findLatestEventWithScores();
@@ -6490,7 +6636,9 @@ async function pullDataFromCloud(isManualForce = false) {
           } else if (APP_STATE.currentTab === 'search') {
             renderClassRoster();
           } else if (APP_STATE.currentTab === 'admin') {
-            renderAdminEditTable();
+            // 🛡️ 終極防閃退保護：管理員在後台登記成績時，雲端同步絕對禁止重繪表格 DOM！
+            // 徹底根除輸入框被銷毀、焦點遺失、游標跳到頂部「名單與道次」或手機縮鍵盤的問題！
+            // 表格僅在管理員主動切換項目選單、點擊保存或切換分頁時受控渲染。
           }
           console.log('Synchronized new data from Google Sheets safely with strict cache-busting.');
           if (isManualForce) {
