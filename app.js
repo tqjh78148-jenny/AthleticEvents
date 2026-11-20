@@ -448,6 +448,13 @@ function initApp() {
     }
   }
 
+  // 🛡️ 接力賽性別獨立隊名防護（徹底防止雲端 GAS 伺服器因姓名為空而男女誤配覆蓋）
+  if (APP_STATE.data && APP_STATE.data.events && Array.isArray(APP_STATE.data.events.relay4x200)) {
+    APP_STATE.data.events.relay4x200.forEach(item => {
+      item.name = `${item.classId} 班${item.gender === '男生組' ? '男生' : '女生'}接力隊`;
+    });
+  }
+
   // 🛡️ 線上名冊與本地成績雙向保護合併（上傳新網頁後，絕對不可更動後台已設定好的比賽成績！）
   if (window.INITIAL_MEET_DATA && window.INITIAL_MEET_DATA.events) {
     // 採用嚴格保留成績的合併模式：本地已輸入成績優先，線上名冊補入，空成績絕不覆蓋已登錄成績！
@@ -6592,7 +6599,14 @@ async function pullDataFromCloud(isManualForce = false) {
   APP_STATE.sync.isSyncing = true;
   try {
     // 🛡️ 1. 在 API 網址後方強制加入微秒時間戳記與隨機字串，徹底瓦解手機端與中繼快取 (Cache Busting)
-    const sep = APP_STATE.sync.gasUrl.includes('?') ? '&' : '?';
+    // 🛡️ 接力賽性別獨立隊名保障：推送雲端前強制注入「男生/女生接力隊」，杜絕任何後端伺服器男女同班誤配
+  if (APP_STATE.data && APP_STATE.data.events && Array.isArray(APP_STATE.data.events.relay4x200)) {
+    APP_STATE.data.events.relay4x200.forEach(item => {
+      item.name = `${item.classId} 班${item.gender === '男生組' ? '男生' : '女生'}接力隊`;
+    });
+  }
+
+  const sep = APP_STATE.sync.gasUrl.includes('?') ? '&' : '?';
     const cacheBusterUrl = `${APP_STATE.sync.gasUrl}${sep}_t=${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     // 🛡️ 2. Google Apps Script 屬於跨網域 Web App，不支援 HTTP OPTIONS 預檢請求。
@@ -6719,6 +6733,13 @@ function pushDataToCloud() {
       });
     }
   } catch (e) {}
+
+  // 🛡️ 接力賽性別獨立隊名保障：推送雲端前強制注入「男生/女生接力隊」，杜絕任何後端伺服器男女同班誤配
+  if (APP_STATE.data && APP_STATE.data.events && Array.isArray(APP_STATE.data.events.relay4x200)) {
+    APP_STATE.data.events.relay4x200.forEach(item => {
+      item.name = `${item.classId} 班${item.gender === '男生組' ? '男生' : '女生'}接力隊`;
+    });
+  }
 
   const sep = APP_STATE.sync.gasUrl.includes('?') ? '&' : '?';
   const cacheBusterUrl = `${APP_STATE.sync.gasUrl}${sep}_t=${Date.now()}`;
